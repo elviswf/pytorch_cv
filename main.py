@@ -2,18 +2,22 @@
 from config import opt
 import os
 import torch as t
+import torchvision
 import models
 from data.dataset import DogCat
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 from torchnet import meter
-from utils.visualize import Visualizer
-import ipdb
+from tensorboardX import SummaryWriter
+
+
+# from utils.visualize import Visualizer
+# import ipdb
 
 
 def test(**kwargs):
     opt.parse(kwargs)
-    ipdb.set_trace()
+    # ipdb.set_trace()
     # configure model
     model = getattr(models, opt.model)().eval()
     if opt.load_model_path:
@@ -51,13 +55,19 @@ def write_csv(results, file_name):
 
 def train(**kwargs):
     opt.parse(kwargs)
-    vis = Visualizer(opt.env)
+    # vis = Visualizer(opt.env)
+    writer = SummaryWriter()
 
     # step1: configure model
     model = getattr(models, opt.model)()
+
+    res = model(t.autograd.Variable(t.Tensor(1, 3, opt.input_size, opt.input_size), requires_grad=True))
+    writer.add_graph(model, res)
+
     if opt.load_model_path:
         model.load(opt.load_model_path)
-    if opt.use_gpu: model.cuda()
+    if opt.use_gpu:
+        model.cuda()
 
     # step2: data
     train_data = DogCat(opt.train_data_root, train=True)
@@ -102,22 +112,30 @@ def train(**kwargs):
             loss_meter.add(loss.data[0])
             confusion_matrix.add(score.data, target.data)
 
+            """
             if ii % opt.print_freq == opt.print_freq - 1:
                 vis.plot('loss', loss_meter.value()[0])
-
                 # 进入debug模式
                 if os.path.exists(opt.debug_file):
                     ipdb.set_trace()
-
+            """
         model.save()
 
         # validate and visualize
         val_cm, val_accuracy = val(model, val_dataloader)
 
-        vis.plot('val_accuracy', val_accuracy)
-        vis.log("epoch:{epoch},lr:{lr},loss:{loss},train_cm:{train_cm},val_cm:{val_cm}".format(
-            epoch=epoch, loss=loss_meter.value()[0], val_cm=str(val_cm.value()), train_cm=str(confusion_matrix.value()),
-            lr=lr))
+        writer.add_scalar('data/train_loss', loss_meter.value()[0], epoch)
+        # writer.add_scalar('data/train_cm', confusion_matrix.value()[0], epoch)
+        writer.add_scalar('data/val_acc', val_accuracy, epoch)
+        # writer.add_scalar('data/val_cm', val_cm.value()[0], epoch)
+        print("epoch:{epoch},lr:{lr},loss:{loss},val_acc:{val_accuracy}".format(
+            epoch=epoch, loss=loss_meter.value()[0], val_accuracy=val_accuracy, lr=lr))
+
+        # for name, param in model.named_parameters():
+        #     writer.add_histogram(name, param.data, epoch)
+
+        # out = torchvision.utils.make_grid(data)
+        # writer.add_image('Image', out, epoch)
 
         # update learning rate
         if loss_meter.value()[0] > previous_loss:
@@ -126,7 +144,10 @@ def train(**kwargs):
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
 
+        writer.add_scalar('data/lr', lr, epoch)
         previous_loss = loss_meter.value()[0]
+    writer.export_scalars_to_json("./checkpoints/all_scalars.json")
+    writer.close()
 
 
 def val(model, dataloader):
