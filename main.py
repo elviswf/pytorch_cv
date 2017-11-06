@@ -9,8 +9,6 @@ from torch.utils.data import DataLoader
 from torch.autograd import Variable
 from torchnet import meter
 from tensorboardX import SummaryWriter
-
-
 # from utils.visualize import Visualizer
 # import ipdb
 
