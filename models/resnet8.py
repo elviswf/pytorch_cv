@@ -52,6 +52,8 @@ class ResNet(nn.Module):
         self.linear2 = nn.Linear(2048, num_classes)
         self.emb = nn.Embedding(num_classes, num_classes)
         self.emb.weight = nn.Parameter(torch.eye(num_classes))
+        # +torch.randn(num_classes,num_classes),requires_grad=True)
+        # self.emb.weight = nn.Parameter(torch.from_numpy(pickle.load(open('./14newemb.pkl','rb'))))
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)

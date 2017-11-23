@@ -172,3 +172,14 @@ stats.kstest(MinMaxScaler().fit_transform(emb_range[:, 0]), 'uniform')
 # import matplotlib.pyplot as plt
 # src=Image.open('d:/ex.jpg')
 # r,g,b=src.split()
+from torch import nn
+import torch
+
+w = torch.randn(10, 8)
+w[0].dot(w[2])
+q, r = torch.qr(w)
+d = torch.diag(r, 0)
+ph = d.sign()
+q *= ph.expand_as(q)
+w.view_as(q).copy_(q)
+w[0].dot(w[4])
