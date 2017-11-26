@@ -21,7 +21,7 @@ NUM_CLASSES = 200 # set the number of classes in your dataset
 DATA_DIR = "/home/fwu/code/pytorch/data/cub200"
 BATCH_SIZE = 32
 
-IMAGE_SIZE = 224
-MODEL_NAME = "STN2Resnet_bn_init"
+IMAGE_SIZE = 448
+MODEL_NAME = "stn2_resnet18_fix"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '_' + str(NUM_EPOCHS) + '.pth'

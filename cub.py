@@ -17,7 +17,7 @@ import os
 import argparse
 from globalConfig import *
 from data.data_loader import DataLoader
-from models.spatial_transform import stnResnet, STN2Resnet, STN4Resnet
+from models.spatial_transform import stnResnet
 from utils.logger import progress_bar
 import pickle
 
@@ -40,18 +40,24 @@ if args.resume:
     start_epoch = checkpoint["epoch"]
 else:
     print("==> Building model...")
-    # net = stnResnet(num_classes=NUM_CLASSES)
-    net = STN2Resnet(num_classes=NUM_CLASSES)
+    net = stnResnet(num_classes=NUM_CLASSES)
+    # net = STN2Resnet(num_classes=NUM_CLASSES)
 
 # print(net)
 if USE_GPU:
     net.cuda()
-    net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
+    # net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 
-optimizer = optim.Adam(net.parameters())
-# optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-print("# trainable parameters: %d" % net.parameters())
+# optimizer = optim.Adam(net.parameters())
+ml = list()
+ml.append({'params': net.localization.parameters(), 'lr': 1e-4*BASE_LR})
+ml.append({'params': net.fc_loc.parameters(), 'lr': 1e-4*BASE_LR})
+ml.append({'params': net.cnn1.parameters(), 'lr': BASE_LR})
+ml.append({'params': net.cnn2.parameters(), 'lr': BASE_LR})
+ml.append({'params': net.linear.parameters(), 'lr': BASE_LR})
+optimizer = optim.SGD(ml, lr=BASE_LR, weight_decay=1e-5)
+# print("# trainable parameters: %d" % net.parameters())
 
 
 def my_loss(logit, prob):
@@ -97,8 +103,10 @@ def train(epoch):
             inputs, targets = inputs.cuda(), targets.cuda()
         optimizer.zero_grad()
         inputs, targets = Variable(inputs), Variable(targets, requires_grad=False)
-        out, theta = net(inputs)
+        out, theta, _ = net(inputs)
 
+        if batch_idx % 60 == 0:
+            print(theta.cpu()[0])
         mode = "baseline"
         loss = comp_loss(out, targets, mode)
         loss.backward()
@@ -125,7 +133,11 @@ def test(epoch):
         if USE_GPU:
             inputs, targets = inputs.cuda(), targets.cuda()
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
-        out, theta = net(inputs)
+        out, theta, x1 = net(inputs)
+        # img = data_loader.un_normalize(x1.data[0].cpu())
+        # to_pil = torchvision.transforms.ToPILImage()
+        # img = to_pil(img)
+        # img.save("imgs/grid/batch_%d.jpg" % batch_idx)
         loss = F.cross_entropy(out, targets)
 
         test_loss = loss.data[0]
@@ -139,12 +151,16 @@ def test(epoch):
     log.write(str(correct / total) + ' ' + str(test_loss) + '\n')
     log.write(str(theta.cpu()[0]) + '\n')
     log.flush()
+    img = data_loader.un_normalize(x1.data.cpu()[0])
+    to_pil = torchvision.transforms.ToPILImage()
+    img = to_pil(img)
+    img.save("imgs/grid/test_%d.jpg" % epoch)
 
     acc = 100. * correct / total
     if epoch > 30 and acc > best_acc:
         print("Saving checkpoint")
         state = {
-            'net': net.module if USE_GPU else net,
+            'net': net,
             'acc': acc,
             'epoch': epoch,
         }
@@ -154,6 +170,6 @@ def test(epoch):
         best_acc = acc
 
 
-for epoch in range(start_epoch, 100):
+for epoch in range(start_epoch, 200):
     train(epoch)
     test(epoch)

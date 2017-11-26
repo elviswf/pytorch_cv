@@ -42,7 +42,7 @@ class DataLoader(object):
         self.normalize_std = [0.229, 0.224, 0.225]
         self.data_transforms = {
             'train': transforms.Compose([
-                transforms.Scale(256),
+                transforms.Scale(512),
                 transforms.CenterCrop(self.image_size),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
@@ -50,7 +50,7 @@ class DataLoader(object):
                 transforms.Normalize(self.normalize_mean, self.normalize_std)
             ]),
             'val': transforms.Compose([
-                transforms.Scale(256),
+                transforms.Scale(512),
                 transforms.CenterCrop(self.image_size),
                 transforms.ToTensor(),
                 transforms.Normalize(self.normalize_mean, self.normalize_std)
@@ -94,6 +94,18 @@ class DataLoader(object):
         image_tensor = self.data_transforms['val'](image).float()
         image_tensor.unsqueeze_(0)
         return Variable(image_tensor)
+
+    def un_normalize(self, tensor):
+        """
+        Args:
+            tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
+        Returns:
+            Tensor: Normalized image.
+        """
+        for t, m, s in zip(tensor, self.normalize_mean, self.normalize_std):
+            t.mul_(s).add_(m)
+            # The normalize code -> t.sub_(m).div_(s)
+        return tensor
 
 
 
