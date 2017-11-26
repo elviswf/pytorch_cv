@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-from torchvision.models.resnet import resnet18
+from torchvision.models.resnet import resnet18, resnet50
 from torch.nn.init import kaiming_normal
 import copy
 
@@ -22,16 +22,12 @@ def rangeScale(x):
     return 0.5 - torch.reciprocal(y)
 
 
-def squash(x):
-    y = torch.norm(x)
-
-
 class SpatialTransformNet(nn.Module):
-    def __init__(self, cnn, num_classes=200):
+    def __init__(self, loc_net, cnn, num_classes=200):
         super(SpatialTransformNet, self).__init__()
         # Spatial transformer localization-network
         self.localization = nn.Sequential(
-            *list(cnn.children())[:-1],
+            loc_net,
             nn.Conv2d(512, 128, kernel_size=1)
         )
 
@@ -43,13 +39,13 @@ class SpatialTransformNet(nn.Module):
 
         # Initialize the weights/bias with identity transformation
         self.fc_loc[1].weight.data.fill_(0)
-        self.fc_loc[1].bias.data = torch.FloatTensor([-0.1, 0, 0, 0.1])
+        self.fc_loc[1].bias.data = torch.FloatTensor([-0.1, 0, 0, 0])
 
-        self.cnn1 = copy.deepcopy(cnn)
+        self.cnn1 = cnn
         self.cnn2 = copy.deepcopy(cnn)
         self.linear = nn.Sequential(
             nn.Dropout(0.7),
-            nn.Linear(1024, num_classes)
+            nn.Linear(4096, num_classes)
         )
         kaiming_normal(self.linear[1].weight)
 
@@ -88,8 +84,10 @@ class SpatialTransformNet(nn.Module):
 
 
 def stnResnet(num_classes=200):
-    model = resnet18(pretrained=True)
-    cnn = nn.Sequential(*list(model.children())[:-1])
+    model1 = resnet18(pretrained=True)
+    loc_net = nn.Sequential(*list(model1.children())[:-2])
+    model2 = resnet50(pretrained=True)
+    cnn = nn.Sequential(*list(model2.children())[:-1])
     # return model
-    return SpatialTransformNet(cnn, num_classes)
+    return SpatialTransformNet(loc_net, cnn, num_classes)
 

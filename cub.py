@@ -117,7 +117,7 @@ def train(epoch):
         total += targets.size(0)
         correct += predicted.eq(targets.data).cpu().sum()
 
-        progress_bar(batch_idx, len(train_loader), "Loss: %.3f | Acc: %.3f%% (%d/%d"
+        progress_bar(batch_idx, len(train_loader), "Loss: %.3f | Acc: %.3f%% (%d/%d)"
                      % (train_loss / (batch_idx + 1), 100. * correct / total, correct, total))
 
     log.write(str(epoch) + ' ' + str(correct / total) + ' ')
@@ -140,7 +140,7 @@ def test(epoch):
         # img.save("imgs/grid/batch_%d.jpg" % batch_idx)
         loss = F.cross_entropy(out, targets)
 
-        test_loss = loss.data[0]
+        test_loss += loss.data[0]
         _, predicted = torch.max(out.data, 1)
         total += targets.size(0)
         correct += predicted.eq(targets.data).cpu().sum()
@@ -173,3 +173,5 @@ def test(epoch):
 for epoch in range(start_epoch, 200):
     train(epoch)
     test(epoch)
+
+log.close()
