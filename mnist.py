@@ -20,9 +20,9 @@ from utils.logger import progress_bar
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
-parser.add_argument('--test-batch-size', type=int, default=512, metavar='N',
+parser.add_argument('--test-batch-size', type=int, default=96, metavar='N',
                     help='input batch size for testing (default: 512)')
-parser.add_argument('--epochs', type=int, default=30, metavar='N',
+parser.add_argument('--epochs', type=int, default=80, metavar='N',
                     help='number of epochs to train (default: 10)')
 parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                     help='learning rate (default: 0.01)')
@@ -79,6 +79,7 @@ capsuleLoss = CapsuleLoss()
 
 
 def train(epoch):
+    print("\nEpoch: %d" % epoch)
     net.train()
     train_loss, correct, total, loss = 0, 0, 0, 0
     for batch_idx, (batch_x, target) in enumerate(train_loader):
@@ -98,38 +99,34 @@ def train(epoch):
         total += target.size(0)
         pred = classes.data.max(1, keepdim=True)[1].cpu()
         correct += pred.eq(target.view_as(pred)).sum()
-        if batch_idx % args.log_interval == 0:
-            print('Train Epoch: {} [{:.0f}%]  Loss: {:.4f}| Acc: {:.3f}% ({}/{})'.format(
-                epoch, 1. * len(batch_x) * batch_idx / len(train_loader), train_loss,
-                100. * correct / total, correct, total))
+        progress_bar(batch_idx, len(train_loader), "Loss: %.3f | Acc: %.3f%% (%d/%d)"
+                     % (train_loss / (batch_idx + 1), 100. * correct / total, correct, total))
 
 
 def test(epoch):
     global best_acc
     net.eval()
     test_loss, correct, total, loss = 0, 0, 0, 0
-    for batch_x, target in test_loader:
+    for batch_idx, (batch_x, target) in enumerate(test_loader):
         target = torch.LongTensor(target)
         labels = torch.sparse.torch.eye(NUM_CLASSES).index_select(dim=0, index=target)
         if args.cuda:
-            data, labels = batch_x.cuda(), labels.cuda()
+            batch_x, labels = batch_x.cuda(), labels.cuda()
         batch_x, labels = Variable(batch_x, volatile=True), Variable(labels)
         classes, reconstructions = net(batch_x)
-        loss = CapsuleLoss(batch_x, labels, classes, reconstructions)
+        loss = capsuleLoss(batch_x, labels, classes, reconstructions)
         test_loss += loss.data[0]
         total += target.size(0)
         pred = classes.data.max(1, keepdim=True)[1].cpu()
         correct += pred.eq(target.view_as(pred)).sum()
+        progress_bar(batch_idx, len(test_loader), "Loss: %.3f | Acc: %.3f%% (%d/%d)"
+                     % (test_loss / (batch_idx + 1), 100. * correct / total, correct, total))
 
-    test_loss /= len(test_loader.dataset)
-    print('\nTest: Avg_loss: {:.4f}| Acc: {:.3f}% ({}/{})\n'.format(
-        test_loss, 100. * correct / len(test_loader.dataset),
-        correct, len(test_loader.dataset)))
-    log.write("Test Epoch " + epoch + ": " + str(correct / total) + ' ' + str(test_loss) + '\n')
+    log.write("Test Epoch %d: acc: %.3f | loss: %.3f\n" % (epoch, correct / total, test_loss))
     log.flush()
 
     acc = 100. * correct / len(test_loader.dataset)
-    if epoch > 30 and acc > best_acc:
+    if epoch > 0 and acc > best_acc:
         print("Saving checkpoint")
         state = {
             'net': net,
