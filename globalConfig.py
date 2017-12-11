@@ -22,6 +22,6 @@ DATA_DIR = "/home/fwu/code/pytorch/data/cub200"
 BATCH_SIZE = 32
 
 IMAGE_SIZE = 224
-MODEL_NAME = "emb_resnet50"
+MODEL_NAME = "cub_resnet18"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '_' + str(NUM_EPOCHS) + '.pth'

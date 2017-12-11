@@ -46,7 +46,7 @@ class DataLoader(object):
                 transforms.CenterCrop(self.image_size),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                torchsample.transforms.Rotate(10),
+                # torchsample.transforms.Rotate(10),
                 transforms.Normalize(self.normalize_mean, self.normalize_std)
             ]),
             'val': transforms.Compose([

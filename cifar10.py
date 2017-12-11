@@ -30,7 +30,7 @@ parser.add_argument('--tau', default=2, type=float, help='Softmax temperature')
 parser.add_argument('--alpha', default=0.5, type=float, help='alpha')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--mode', default='baseline', type=str, help='baseline or emb or full')
-parser.add_argument('--data', default='/home/fwu/code/pytorch/pytorch-mini/datasets/', type=str,
+parser.add_argument('--data', default='/home/fwu/code/pytorch/data/cifar10/', type=str,
                     help='file path of the dataset')
 parser.add_argument('--num', default='0', type=str)
 args = parser.parse_args()
@@ -154,7 +154,7 @@ def test(epoch):
     for batch_idx, (inputs, targets) in enumerate(train_loader):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda()
-        inputs, targets = Variable(inputs, volatile=True), Variable(targets)
+        inputs, targets = Variable(inputs, volatile=True), Variable(targets, requires_grad=False)
         out, _, _, _ = net(inputs, targets, -1, batch_idx)
         loss = F.cross_entropy(out, targets)
 
