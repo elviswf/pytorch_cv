@@ -41,10 +41,10 @@ def torch_summarize(model, show_weights=True, show_parameters=True):
     return tmpstr
 
 
-def lr_scheduler(optimizer, epoch, init_lr=0.001, decay_epoch=0, lr_decay_epoch=5):
+def lr_scheduler(optimizer, epoch, init_lr=0.01, decay_epoch=0, lr_decay_epoch=6):
     """Decay learning rate by a factor of 0.5 every lr_decay_epoch epochs."""
     dif_epoch = epoch - decay_epoch
-    lr = init_lr * (0.5 ** (dif_epoch // lr_decay_epoch))
+    lr = init_lr * (0.8 ** (dif_epoch // lr_decay_epoch))
 
     if dif_epoch % lr_decay_epoch == 0:
         print('LR is set to {}'.format(lr))

@@ -23,7 +23,7 @@ import time
 import os
 from globalConfig import *
 from PIL import Image
-import torchsample
+# import torchsample
 import textwrap
 
 
@@ -63,9 +63,10 @@ class DataLoader(object):
         self.data_sets = {x: datasets.ImageFolder(os.path.join(self.data_dir, x), self.data_transforms[x])
                           for x in ['train', 'val']}
 
-        self.data_loaders = {x: torch.utils.data.DataLoader(self.data_sets[x], batch_size=self.batch_size,
-                                                            shuffle=True, num_workers=4)
-                             for x in ['train', 'val']}
+        self.data_loaders = {'train': torch.utils.data.DataLoader(self.data_sets['train'], batch_size=self.batch_size,
+                                                                  shuffle=True, num_workers=4),
+                             'val': torch.utils.data.DataLoader(self.data_sets['val'], batch_size=self.batch_size,
+                                                                shuffle=False, num_workers=4)}
         self.data_sizes = {x: len(self.data_sets[x]) for x in ['train', 'val']}
         self.data_classes = self.data_sets['train'].classes
 
@@ -80,8 +81,8 @@ class DataLoader(object):
         if title is not None:
             ptitle = "\n".join(textwrap.wrap(",".join(title), 80))
             plt.title(ptitle)
-        # plt.show()
-        plt.savefig(time.strftime("imgs/%H_%M_%S.jpg", time.localtime()))
+        plt.show()
+        # plt.savefig(time.strftime("imgs/%H_%M_%S.jpg", time.localtime()))
 
     def make_predict_inputs(self, image_file):
         """

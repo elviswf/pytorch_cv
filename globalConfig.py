@@ -18,10 +18,10 @@ NUM_EPOCHS = 200
 # DATASET INFO
 NUM_CLASSES = 200 # set the number of classes in your dataset
 # DATA_DIR = "/home/fwu/code/pytorch/data/orbitabase/vhbase_data"
-DATA_DIR = "/home/fwu/code/pytorch/data/cub200"
+DATA_DIR = "/home/elvis/code/data/cub200/"
 BATCH_SIZE = 32
 
 IMAGE_SIZE = 224
-MODEL_NAME = "cub_resnet18"
+MODEL_NAME = "cub_bilinear_f1"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '_' + str(NUM_EPOCHS) + '.pth'
