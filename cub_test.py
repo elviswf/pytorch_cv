@@ -4,7 +4,7 @@
 @Author  : Elvis
 """
 """
- cub_test.py
+CUDA_VISIBLE_DEVICES=0 python cub_test.py
   
 """
 import numpy as np
@@ -27,11 +27,11 @@ NUM_ATTR = 312
 DATA_DIR = "/home/elvis/data/attribute/CUB_200_2011/zsl/zsl_test"
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-MODEL_NAME = "zsl_resnet18_attr1_fc"
+MODEL_NAME = "zsl_resnet18_fc01"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
-parser = argparse.ArgumentParser(description='PyTorch zsl_resnet18_attr1 Training')
+parser = argparse.ArgumentParser(description='PyTorch zsl_resnet18_fc_relu Training')
 parser.add_argument('--lr', default=BASE_LR, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', default=False, help='resume from checkpoint')
 parser.add_argument('--data', default=DATA_DIR, type=str, help='file path of the dataset')
@@ -47,15 +47,14 @@ best_acc = checkpoint["acc"]
 start_epoch = checkpoint["epoch"]
 optimizer = checkpoint["optimizer"]
 
-w_attr = np.load("data/w_attr.npy")
+order_cub_attr = np.load("data/order_cub_attr.npy")
 # w_attr_sum = np.sum(w_attr, 0)
 # w_attr = w_attr/w_attr_sum
 # w_attr[:, 0].sum()
-
-w_attr = torch.FloatTensor(w_attr)  # 150 * 312
-
+order_cub_attr = order_cub_attr[150:, :]
+order_cub_attr = torch.FloatTensor(order_cub_attr)  # 50 * 312
 net.fc2 = nn.Linear(NUM_ATTR, NUM_CLASSES, bias=False)
-net.fc2 = nn.Parameter(w_attr, requires_grad=False)
+net.fc2.weight = nn.Parameter(order_cub_attr, requires_grad=False)
 # print(torch_summarize(net))
 # print(net)
 if USE_GPU:
@@ -66,8 +65,8 @@ if USE_GPU:
 print("==> Preparing data...")
 data_loader = DataLoader(data_dir=args.data, image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
 inputs, classes = next(iter(data_loader.load_data()))
-out = torchvision.utils.make_grid(inputs)
-data_loader.show_image(out, title=[data_loader.data_classes[c] for c in classes])
+# out = torchvision.utils.make_grid(inputs)
+# data_loader.show_image(out, title=[data_loader.data_classes[c] for c in classes])
 train_loader = data_loader.load_data(data_set='train')
 test_loader = data_loader.load_data(data_set='val')
 criterion = nn.CrossEntropyLoss()
@@ -144,3 +143,4 @@ def test(epoch, net):
 
 epoch = 0
 test(epoch, net)
+
