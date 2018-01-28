@@ -19,9 +19,9 @@ from torchvision.models import resnet101, resnet18
 
 
 class AttriCNN(nn.Module):
-    def __init__(self, w_attr, num_attr=312, num_classes=150):
+    def __init__(self, cnn, w_attr, num_attr=312, num_classes=150):
         super(AttriCNN, self).__init__()
-        self.cnn = resnet18(pretrained=True)
+        self.cnn = cnn
         feat_size = self.cnn.fc.in_features
         self.cnn.fc = nn.Sequential(
             nn.Linear(feat_size, num_attr),
@@ -41,6 +41,7 @@ class AttriCNN(nn.Module):
 
 
 def attrCNN(num_attr=312, num_classes=150):
+    cnn = resnet18(pretrained=True)
     w_attr = np.load("data/order_cub_attr.npy")
     # w_attr_sum = np.sum(w_attr, 0)
     # w_attr = w_attr/w_attr_sum
@@ -48,20 +49,22 @@ def attrCNN(num_attr=312, num_classes=150):
     w_attr = w_attr[:num_classes, :]
     w_attr = torch.FloatTensor(w_attr)  # 312 * 150
     # (torch.ones((1, 2)).mm(torch.ones((2, 3))))
-    return AttriCNN(w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
+    return AttriCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
 
 
 def attrCNN_cubfull(num_attr=312, num_classes=200):
+    cnn = resnet101(pretrained=True)
     w_attr = np.load("data/order_cub_attr.npy")
     w_attr = torch.FloatTensor(w_attr)
-    return AttriCNN(w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
+    return AttriCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
 
 
 def attrCNN_awa2(num_attr=85, num_classes=40):
+    cnn = resnet18(pretrained=True)
     w_attr = np.load("data/order_awa2_attr.npy")
     w_attr = w_attr[:num_classes, :]
     w_attr = torch.FloatTensor(w_attr)
-    return AttriCNN(w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
+    return AttriCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
 
 
 class WARP(Function):

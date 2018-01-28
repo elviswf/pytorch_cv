@@ -9,7 +9,10 @@ CUDA_VISIBLE_DEVICES=3 python cub_attr1.py
 
 attr_resnet18_fc00 : Sigmoid + dropout 0.5   461 epoch Acc: 67.294% (3899/5794)
 attr_resnet18_fc01 : Sigmoid           366 epoch Acc: 61.788% (3580/5794)
-attr_resnet18_fc02 : Sigmoid + dropout 0.5 Adam
+attr_resnet18_fc02 : Sigmoid + dropout 0.5 Adam bad  Acc: 50.518% (2927/5794)
+
+attr_resnet101_fc00 : Sigmoid + dropout 0.5 weight_decay=0.005
+attr_resnet101_fc01 : Sigmoid + dropout 0.5 weight_decay=0.005 fc_pretrain
 """
 import torch
 from torch import nn
@@ -19,7 +22,8 @@ from torch.autograd import Variable
 import os
 import argparse
 from data.data_loader import DataLoader
-from models.attr_resnet import attrCNN, WARPLoss
+# from models.attr_resnet import attrCNN, WARPLoss
+from models.zsl_resnet import attrCNN_cubfull
 from utils.logger import progress_bar
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
@@ -31,11 +35,11 @@ NUM_ATTR = 312
 DATA_DIR = "/home/elvis/code/data/cub200"
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-MODEL_NAME = "attr_resnet18_fc02"
+MODEL_NAME = "attr_resnet101_fc01"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
-parser = argparse.ArgumentParser(description='PyTorch attr_resnet18_fc00 Training')
+parser = argparse.ArgumentParser(description='PyTorch attr_resnet101_fc00 Training')
 parser.add_argument('--lr', default=BASE_LR, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', default=False, help='resume from checkpoint')
 parser.add_argument('--data', default=DATA_DIR, type=str, help='file path of the dataset')
@@ -53,7 +57,7 @@ if args.resume:
     optimizer = checkpoint["optimizer"]
 else:
     print("==> Building model...")
-    net = attrCNN(num_attr=312, num_classes=200)
+    net = attrCNN_cubfull(num_attr=312, num_classes=200)
 
 # optimizer = optim.Adam(net.parameters())
 # optimizer = optim.SGD(net.get_config_optim(BASE_LR / 10.),
@@ -161,25 +165,25 @@ base_params = list(filter(lambda p: id(p) not in fc_params, net.cnn.parameters()
 
 for param in net.parameters():
     param.requires_grad = False
-for param in net.cnn.parameters():
+
+optim_params = list(net.cnn.fc.parameters())
+for param in optim_params:
     param.requires_grad = True
 
-# optim_params = list(net.cnn.fc.parameters())
-# for param in optim_params:
-#     param.requires_grad = True
-#
-# epoch1 = 30
-# # optimizer = optim.SGD(optim_params, lr=0.01, momentum=0.9, weight_decay=0.0005)
-# optimizer = optim.Adam(optim_params, weight_decay=0.0005)
-# if start_epoch < epoch1:
-#     for epoch in range(start_epoch, epoch1):
-#         train(epoch, net, optimizer)
-#         test(epoch, net)
-#     start_epoch = epoch1
+epoch1 = 20
+# optimizer = optim.SGD(optim_params, lr=0.01, momentum=0.9, weight_decay=0.005)
+optimizer = optim.Adagrad(optim_params, lr=0.01, weight_decay=0.005)
+if start_epoch < epoch1:
+    for epoch in range(start_epoch, epoch1):
+        train(epoch, net, optimizer)
+        test(epoch, net)
+    start_epoch = epoch1
 
+for param in net.cnn.parameters():
+    param.requires_grad = True
 # start_epoch = 0
-optimizer = optim.Adam(net.cnn.fc.parameters(), weight_decay=0.0005)
-# optimizer = optim.Adagrad(net.cnn.parameters(), lr=0.001, weight_decay=0.0005)
+# optimizer = optim.Adam(net.cnn.fc.parameters(), weight_decay=0.0005)
+optimizer = optim.Adagrad(net.cnn.parameters(), lr=0.001, weight_decay=0.005)
 # optimizer = torch.optim.SGD([
 #     {'params': base_params},
 #     {'params': net.cnn.fc.parameters(), 'lr': 1}

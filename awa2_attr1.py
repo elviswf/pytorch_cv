@@ -7,7 +7,8 @@
 watch --color -n1 gpustat -cpu
 CUDA_VISIBLE_DEVICES=1 python awa2_attr1.py
 
-zsl_resnet18_fc00 : Sigmoid + dropout 0.5
+zsl_resnet18_fc00_awa2 : Sigmoid + dropout 0.5 Acc: 92.320% (5614/6081)   ZSL Acc: 24.939% (1742/6985)
+zsl_resnet18_fc01_awa2 : Sigmoid + dropout 0.5 weight_decay=0.005 Acc: 82.552% (5020/6081)  Acc: 24.939% (1742/6985)
 
 """
 import torch
@@ -32,7 +33,7 @@ BATCH_SIZE = 32
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-MODEL_NAME = "zsl_resnet18_fc00_awa2"
+MODEL_NAME = "zsl_resnet18_fc01_awa2"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -125,7 +126,7 @@ def test(epoch, net):
     log.flush()
 
     acc = 100. * correct / total
-    if epoch > 9 and acc > best_acc:
+    if epoch > 2 and acc > best_acc:
         print("Saving checkpoint")
         state = {
             'net': net,
@@ -137,6 +138,17 @@ def test(epoch, net):
             os.mkdir('checkpoints')
         torch.save(state, "./checkpoints/" + MODEL_SAVE_FILE)
         best_acc = acc
+    if epoch > 3 and epoch % 5 == 1:
+        print("Saving checkpoint")
+        state = {
+            'net': net,
+            'acc': acc,
+            'epoch': epoch,
+            'optimizer': optimizer
+        }
+        if not os.path.isdir("checkpoints"):
+            os.mkdir('checkpoints')
+        torch.save(state, "./checkpoints/epoch" + epoch + "_" + MODEL_SAVE_FILE)
 
 
 fc_params = list(map(id, net.cnn.fc.parameters()))
@@ -162,14 +174,14 @@ for param in net.cnn.parameters():
 
 # start_epoch = 0
 # optimizer = optim.Adam(net.cnn.fc.parameters(), weight_decay=0.0005)
-optimizer = optim.Adagrad(net.cnn.parameters(), lr=0.001, weight_decay=0.0005)
+optimizer = optim.Adagrad(net.cnn.parameters(), lr=0.001, weight_decay=0.005)
 # optimizer = torch.optim.SGD([
 #     {'params': base_params},
 #     {'params': net.cnn.fc.parameters(), 'lr': 1}
 # ], lr=1e-4, momentum=0.9, weight_decay=0.0005)
 
 # optimizer = optim.Adam(optim_params, weight_decay=0.0005)
-for epoch in range(start_epoch, 500):
+for epoch in range(start_epoch, 300):
     train(epoch, net, optimizer)
     test(epoch, net)
 log.close()
