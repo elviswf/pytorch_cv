@@ -26,7 +26,7 @@ class AttriCNN(nn.Module):
         self.cnn.fc = nn.Sequential(
             nn.Linear(feat_size, num_attr),
             nn.Sigmoid(),
-            # nn.Dropout(0.5)
+            nn.Dropout(0.5)
         )
         self.fc2 = nn.Linear(num_attr, num_classes, bias=False)
         self.fc2.weight = nn.Parameter(w_attr, requires_grad=False)

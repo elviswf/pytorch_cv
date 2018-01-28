@@ -7,8 +7,9 @@
 watch --color -n1 gpustat -cpu
 CUDA_VISIBLE_DEVICES=3 python cub_attr1.py
 
-attr_resnet18_fc00 : Sigmoid + dropout 0.5
-attr_resnet18_fc01 : Sigmoid
+attr_resnet18_fc00 : Sigmoid + dropout 0.5   461 epoch Acc: 67.294% (3899/5794)
+attr_resnet18_fc01 : Sigmoid           366 epoch Acc: 61.788% (3580/5794)
+attr_resnet18_fc02 : Sigmoid + dropout 0.5 Adam
 """
 import torch
 from torch import nn
@@ -30,7 +31,7 @@ NUM_ATTR = 312
 DATA_DIR = "/home/elvis/code/data/cub200"
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-MODEL_NAME = "attr_resnet18_fc01"
+MODEL_NAME = "attr_resnet18_fc02"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -177,8 +178,8 @@ for param in net.cnn.parameters():
 #     start_epoch = epoch1
 
 # start_epoch = 0
-# optimizer = optim.Adam(net.cnn.fc.parameters(), weight_decay=0.0005)
-optimizer = optim.Adagrad(net.cnn.parameters(), lr=0.001, weight_decay=0.0005)
+optimizer = optim.Adam(net.cnn.fc.parameters(), weight_decay=0.0005)
+# optimizer = optim.Adagrad(net.cnn.parameters(), lr=0.001, weight_decay=0.0005)
 # optimizer = torch.optim.SGD([
 #     {'params': base_params},
 #     {'params': net.cnn.fc.parameters(), 'lr': 1}
