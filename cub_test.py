@@ -12,13 +12,10 @@ import torch
 from torch import nn
 from torch.backends import cudnn
 from torch.autograd import Variable
-import torchvision
 import os
 import argparse
 from data.data_loader import DataLoader
 from utils.logger import progress_bar
-# from utils.param_count import torch_summarize, lr_scheduler
-# import pickle
 
 # Learning rate parameters
 BASE_LR = 0.01
@@ -28,16 +25,9 @@ DATA_DIR = "/home/elvis/data/attribute/CUB_200_2011/zsl/zsl_test"
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc03"
-MODEL_NAME = "tmp_zsl_resnet18_fc03"
+MODEL_NAME = "zsl_cub_resnet18_WARPLoss"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
-
-parser = argparse.ArgumentParser(description='PyTorch zsl_resnet18_fc_relu Training')
-parser.add_argument('--lr', default=BASE_LR, type=float, help='learning rate')
-parser.add_argument('--resume', '-r', action='store_true', default=False, help='resume from checkpoint')
-parser.add_argument('--data', default=DATA_DIR, type=str, help='file path of the dataset')
-args = parser.parse_args()
-
 best_acc = 0.
 start_epoch = 0
 print("Model: " + MODEL_NAME)
@@ -64,7 +54,7 @@ if USE_GPU:
     cudnn.benchmark = True
 
 print("==> Preparing data...")
-data_loader = DataLoader(data_dir=args.data, image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
+data_loader = DataLoader(data_dir=DATA_DIR, image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
 inputs, classes = next(iter(data_loader.load_data()))
 # out = torchvision.utils.make_grid(inputs)
 # data_loader.show_image(out, title=[data_loader.data_classes[c] for c in classes])

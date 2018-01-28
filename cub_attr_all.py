@@ -11,7 +11,7 @@ attr_resnet18_fc00 : Sigmoid + dropout 0.5   461 epoch Acc: 67.294% (3899/5794)
 attr_resnet18_fc01 : Sigmoid           366 epoch Acc: 61.788% (3580/5794)
 attr_resnet18_fc02 : Sigmoid + dropout 0.5 Adam bad  Acc: 50.518% (2927/5794)
 
-attr_resnet101_fc00 : Sigmoid + dropout 0.5 weight_decay=0.005
+attr_resnet101_fc00 : Sigmoid + dropout 0.5 weight_decay=0.005 133 Acc: 37.263% (2159/5794)
 attr_resnet101_fc01 : Sigmoid + dropout 0.5 weight_decay=0.005 fc_pretrain
 """
 import torch

@@ -11,7 +11,8 @@ zsl_resnet18_fc00 : Sigmoid + dropout 0.5  74.789% (1329/1777)  ZSL_Acc: 53.354%
 zsl_resnet18_fc01 : Sigmoid with fc pretrain   Acc: 73.044% (1298/1777)  ZSL_Acc: 24.537% (728/2967)
 zsl_resnet18_fc02 : Sigmoid with fc pretrain + dropout 0.5 full 150   60 epoch:  Acc: 50.792% (1507/2967)
 zsl_resnet18_fc03 : Sigmoid + dropout 0.5 weight_decay=0.005 full 150   60 epoch:  Acc: 50.792% (1507/2967)
-                                          100 epoch:    Acc: 53.758% (1595/2967)
+                     100 epoch:    Acc: 53.758% (1595/2967)    100 epoch: Acc: 54.297% (1611/2967)
+
 
 """
 import torch
@@ -160,17 +161,6 @@ def test(epoch, net):
             os.mkdir('checkpoints')
         torch.save(state, "./checkpoints/" + MODEL_SAVE_FILE)
         best_acc = acc
-    if epoch % 3 == 1:
-        print("Saving checkpoint")
-        state = {
-            'net': net,
-            'acc': acc,
-            'epoch': epoch,
-            'optimizer': optimizer
-        }
-        if not os.path.isdir("checkpoints"):
-            os.mkdir('checkpoints')
-        torch.save(state, "./checkpoints/tmp_" + MODEL_SAVE_FILE)
 
 
 fc_params = list(map(id, net.cnn.fc.parameters()))
@@ -194,16 +184,19 @@ for param in net.parameters():
 for param in net.cnn.parameters():
     param.requires_grad = True
 
-optimizer = optim.Adagrad(net.cnn.parameters(), lr=0.001, weight_decay=0.005)
+# optimizer = optim.Adagrad(net.cnn.parameters(), lr=0.001, weight_decay=0.005)
 # start_epoch = 0
 # optimizer = optim.Adam(net.cnn.fc.parameters(), weight_decay=0.0005)
 # optimizer = torch.optim.SGD([
 #     {'params': base_params},
 #     {'params': net.cnn.fc.parameters(), 'lr': 1}
 # ], lr=1e-4, momentum=0.9, weight_decay=0.0005)
-
+from zeroshot.cub_test import zsl_test
+import copy
 # optimizer = optim.Adam(optim_params, weight_decay=0.0005)
 for epoch in range(start_epoch, 500):
     train(epoch, net, optimizer)
     test(epoch, net)
+    net1 = copy.deepcopy(net)
+    zsl_test(epoch, net1, optimizer)
 log.close()

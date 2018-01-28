@@ -163,11 +163,14 @@ optim_params = list(net.cnn.parameters())
 for param in optim_params:
     param.requires_grad = True
 
-optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.0005)
-# optimizer = optim.Adam(optim_params, weight_decay=0.0005)
-for epoch in range(start_epoch, 200):
+# optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.0005)
+from zeroshot.cub_test import zsl_test
+import copy
+for epoch in range(start_epoch, 300):
     train(epoch, net, optimizer)
     test(epoch, net)
+    net1 = copy.deepcopy(net)
+    zsl_test(epoch, net1, optimizer)
 
 # for epoch in range(start_epoch, 100):
 #     train(epoch, net, optimizer)

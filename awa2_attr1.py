@@ -138,17 +138,6 @@ def test(epoch, net):
             os.mkdir('checkpoints')
         torch.save(state, "./checkpoints/" + MODEL_SAVE_FILE)
         best_acc = acc
-    if epoch > 3 and epoch % 5 == 1:
-        print("Saving checkpoint")
-        state = {
-            'net': net,
-            'acc': acc,
-            'epoch': epoch,
-            'optimizer': optimizer
-        }
-        if not os.path.isdir("checkpoints"):
-            os.mkdir('checkpoints')
-        torch.save(state, "./checkpoints/epoch" + epoch + "_" + MODEL_SAVE_FILE)
 
 
 fc_params = list(map(id, net.cnn.fc.parameters()))
@@ -174,14 +163,19 @@ for param in net.cnn.parameters():
 
 # start_epoch = 0
 # optimizer = optim.Adam(net.cnn.fc.parameters(), weight_decay=0.0005)
-optimizer = optim.Adagrad(net.cnn.parameters(), lr=0.001, weight_decay=0.005)
+# optimizer = optim.Adagrad(net.cnn.parameters(), lr=0.001, weight_decay=0.005)
 # optimizer = torch.optim.SGD([
 #     {'params': base_params},
 #     {'params': net.cnn.fc.parameters(), 'lr': 1}
 # ], lr=1e-4, momentum=0.9, weight_decay=0.0005)
 
 # optimizer = optim.Adam(optim_params, weight_decay=0.0005)
+from zeroshot.awa2_test import zsl_test
+import copy
 for epoch in range(start_epoch, 300):
     train(epoch, net, optimizer)
     test(epoch, net)
+    net1 = copy.deepcopy(net)
+    zsl_test(epoch, net1, optimizer)
+
 log.close()
