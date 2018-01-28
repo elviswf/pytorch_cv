@@ -26,6 +26,8 @@ import matplotlib.patheffects as PathEffects
 
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['savefig.dpi'] = 300
+plt.rcParams['figure.dpi'] = 300
 # plt.rcParams['axes.unicode_minus'] = False
 RS = 20171106
 
@@ -116,7 +118,7 @@ def scatter(x, colors, txts=None, name="alexnet"):
 # img.save('w8n.png')
 # img.show()
 nclass = 1000
-cntxts = open("data/synset_words_cn.txt").readlines()
+cntxts = open("data/synset_words_cn.txt").readlines()  #
 cntxts = [line.strip() for line in cntxts]
 
 yc = np.array(list(range(nclass)))
@@ -145,7 +147,8 @@ with open('data/emb_w.pkl', 'rb') as fr:
     emb_w = pickle.load(fr)
 
 for name in models_list:
-    scatter(emb_w[name], colors=yc, txts=cntxts, name=name)
+    scatter(emb_w[name], colors=yc, txts=classes, name=name)
+    # scatter(emb_w[name], colors=yc, txts=cntxts, name=name)
 
 for name in models_list:
     plt.figure(figsize=(16, 16))
@@ -183,3 +186,22 @@ ph = d.sign()
 q *= ph.expand_as(q)
 w.view_as(q).copy_(q)
 w[0].dot(w[4])
+
+for name in models_list:
+    print(weight_dict[name].shape)
+
+res18_w = weight_dict[models_list[4]]
+res18_emb_w = emb_w[models_list[4]]
+
+from sklearn.cluster import KMeans, spectral_clustering
+kmeans = KMeans(n_clusters=12)
+kmeans.fit(X=res18_emb_w, y=yc)
+clusters = kmeans.cluster_centers_
+kmeans.labels_[:10]
+
+
+fig, ax = plt.subplots(figsize=(12, 12))
+ax.scatter(res18_emb_w[:, 0], res18_emb_w[:, 1])
+ax.scatter(clusters[:, 0], clusters[:, 1], marker='*', color='black', label='centers')
+fig.savefig("data/embedding/weight/res18_w_kmeans12.png")
+

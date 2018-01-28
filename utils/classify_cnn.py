@@ -6,6 +6,7 @@
 """
  classify_cnn.py
   
+conda config --set auto_update_conda false
 """
 import matplotlib
 

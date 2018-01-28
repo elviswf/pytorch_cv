@@ -18,6 +18,8 @@
 # ------------------------------------------------------------------------
 from torch.autograd import Variable
 from torchvision import datasets, models, transforms
+import matplotlib
+matplotlib.use("tkAgg")
 import matplotlib.pyplot as plt
 import time
 import os
