@@ -8,7 +8,8 @@ watch --color -n1 gpustat -cpu
 CUDA_VISIBLE_DEVICES=2 python cub_attr.py
 
 all_cub_resnet18_WARPLoss: Sigmoid + dropout 0.5 weight_decay=0.005
-all_cub_resnet18_WARPLoss2: Sigmoid + dropout 0.5 weight_decay=0.0005
+all_cub_resnet18_WARPLoss1: Sigmoid + dropout 0.5 weight_decay=0.005 semi  64%
+all_cub_resnet18_WARPLoss2: Sigmoid + dropout 0.5 weight_decay=0.0005 Acc: 41.560% (2408/5794)
 """
 import torch
 from torch import nn
@@ -21,6 +22,7 @@ import argparse
 from data.data_loader import DataLoader
 from models.zsl_resnet import attrCNN, WARPLoss
 from utils.logger import progress_bar
+
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
 
@@ -31,7 +33,7 @@ NUM_ATTR = 312
 DATA_DIR = "/home/elvis/code/data/cub200"
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-MODEL_NAME = "all_cub_resnet18_WARPLoss2"
+MODEL_NAME = "all_cub_resnet18_WARPLoss1"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -160,13 +162,16 @@ def test(epoch, net):
 for param in net.parameters():
     param.requires_grad = False
 
-optim_params = list(net.cnn.parameters())
-for param in optim_params:
+for param in net.cnn.parameters():
     param.requires_grad = True
 
-optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.0005)
-# optimizer = optim.Adam(optim_params, weight_decay=0.0005)
-for epoch in range(start_epoch, 200):
+fc_params = list(map(id, net.cnn.fc.parameters()))
+base_params = list(filter(lambda p: id(p) not in fc_params, net.cnn.parameters()))
+optimizer = optim.Adagrad([{'params': base_params},
+                           {'params': net.cnn.fc.parameters(), 'lr': 0.005}
+                           ], lr=0.0005, weight_decay=0.005)
+
+for epoch in range(start_epoch, 800):
     train(epoch, net, optimizer)
     test(epoch, net)
 
@@ -174,4 +179,3 @@ for epoch in range(start_epoch, 200):
 #     train(epoch, net, optimizer)
 #     test(epoch, net)
 log.close()
-

@@ -8,14 +8,7 @@ watch --color -n1 gpustat -cpu
 CUDA_VISIBLE_DEVICES=3 python cub_attr1.py
 
 attr_resnet18_fc00 : Sigmoid + dropout 0.5   461 epoch Acc: 67.294% (3899/5794)
-attr_resnet18_fc01 : Sigmoid           366 epoch Acc: 61.788% (3580/5794)
-attr_resnet18_fc02 : Sigmoid + dropout 0.5 Adam bad  Acc: 50.518% (2927/5794)
 
-attr_resnet101_fc00 : Sigmoid + dropout 0.5 weight_decay=0.005 133 Acc: 37.263% (2159/5794)
-attr_resnet101_fc01 : Sigmoid + dropout 0.5 weight_decay=0.005 fc_pretrain Acc: 63.410% (3674/5794)
-
-attr_resnet50_fc00 : Sigmoid + dropout 0.5 weight_decay=0.005 183 epoch Acc: 72.748% (4215/5794)
-attr_resnet50_fc01:
 """
 import torch
 from torch import nn
@@ -26,7 +19,7 @@ import os
 import argparse
 from data.data_loader import DataLoader
 # from models.attr_resnet import attrCNN, WARPLoss
-from models.zsl_resnet import attrCNN_cubfull
+from models.bilinearAR import resnetAR
 from utils.logger import progress_bar
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
@@ -38,11 +31,11 @@ NUM_ATTR = 312
 DATA_DIR = "/home/elvis/code/data/cub200"
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-MODEL_NAME = "attr_resnet50_fc02"
+MODEL_NAME = "binearAR_resnet50"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
-parser = argparse.ArgumentParser(description='PyTorch attr_resnet50_fc02 Training')
+parser = argparse.ArgumentParser(description='PyTorch binearAR_resnet50 Training')
 parser.add_argument('--lr', default=BASE_LR, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', default=False, help='resume from checkpoint')
 parser.add_argument('--data', default=DATA_DIR, type=str, help='file path of the dataset')
@@ -60,13 +53,8 @@ if args.resume:
     optimizer = checkpoint["optimizer"]
 else:
     print("==> Building model...")
-    net = attrCNN_cubfull(num_attr=312, num_classes=200)
+    net = resnetAR(num_classes=200)
 
-# optimizer = optim.Adam(net.parameters())
-# optimizer = optim.SGD(net.get_config_optim(BASE_LR / 10.),
-#                       lr=BASE_LR,
-#                       momentum=0.9,
-#                       weight_decay=0.0005)
 # print(torch_summarize(net))
 # print(net)
 if USE_GPU:
@@ -85,17 +73,6 @@ test_loader = data_loader.load_data(data_set='val')
 criterion = nn.CrossEntropyLoss()
 
 
-# def one_hot_emb(batch, depth=NUM_CLASSES):
-#     emb = nn.Embedding(depth, depth)
-#     emb.weight.data = torch.eye(depth)
-#     return emb(batch).data
-def one_hot_emb(y, depth=NUM_CLASSES):
-    y = y.view((-1, 1))
-    one_hot = torch.FloatTensor(y.size(0), depth).zero_()
-    one_hot.scatter_(1, y, 1)
-    return one_hot
-
-
 def train(epoch, net, optimizer):
     print("\nEpoch: %d" % epoch)
     net.train()
@@ -109,7 +86,7 @@ def train(epoch, net, optimizer):
         inputs, targets = Variable(inputs), Variable(targets)
         optimizer.zero_grad()
 
-        out, attr = net(inputs)
+        out = net(inputs)
         loss = criterion(out, targets)
         loss.backward()
         optimizer.step()
@@ -133,7 +110,7 @@ def test(epoch, net):
         if USE_GPU:
             inputs, targets = inputs.cuda(), targets.cuda()
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
-        out, attr = net(inputs)
+        out = net(inputs)
         loss = criterion(out, targets)
 
         test_loss = loss.data[0]
@@ -166,7 +143,7 @@ def test(epoch, net):
 for param in net.parameters():
     param.requires_grad = False
 
-optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
+optim_params = list(net.bilinear1.parameters()) + list(net.fc.parameters())
 for param in optim_params:
     param.requires_grad = True
 
@@ -179,16 +156,15 @@ if start_epoch < epoch1:
         test(epoch, net)
     start_epoch = epoch1
 
-for param in net.cnn.parameters():
+for param in net.parameters():
     param.requires_grad = True
 
-fc_params = list(map(id, net.fc2.parameters()))
-base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
+# fc_params = list(map(id, net.fc2.parameters()))
+# base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
 
-optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.0005)
-
+optimizer = optim.Adagrad(net.parameters(), lr=0.001, weight_decay=0.0005)
 # optimizer = optim.Adam(optim_params, weight_decay=0.0005)
-for epoch in range(start_epoch, 800):
+for epoch in range(start_epoch, 500):
     train(epoch, net, optimizer)
     test(epoch, net)
 log.close()

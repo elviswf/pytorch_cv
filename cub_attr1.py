@@ -11,9 +11,14 @@ zsl_resnet18_fc00 : Sigmoid + dropout 0.5  74.789% (1329/1777)  ZSL_Acc: 53.354%
 zsl_resnet18_fc01 : Sigmoid with fc pretrain   Acc: 73.044% (1298/1777)  ZSL_Acc: 24.537% (728/2967)
 zsl_resnet18_fc02 : Sigmoid with fc pretrain + dropout 0.5 full 150   60 epoch:  Acc: 50.792% (1507/2967)
 zsl_resnet18_fc03 : Sigmoid + dropout 0.5 weight_decay=0.005 full 150   60 epoch:  Acc: 50.792% (1507/2967)
-                     100 epoch:    Acc: 53.758% (1595/2967)    100 epoch: Acc: 54.297% (1611/2967)
+                     100 epoch:    Acc: 53.758% (1595/2967)    192 epoch: Acc: 54.803% (1626/2967)
 
-
+zsl_resnet50_fc00 : Sigmoid + dropout 0.5 weight_decay=0.005 full 150 44epoch Acc: 57.162% (1696/2967)
+                                            Acc: 75.842% (6690/8821) | Test Acc: 95.948% (1705/1777)
+zsl_resnet50_fc01 : Sigmoid + dropout 0.5 weight_decay=0.005 half100
+zsl_resnet50_fc02 : Sigmoid + dropout 0.5 weight_decay=0.005 full dropout 0.4 Acc: 58.140% (1725/2967) 24
+zsl_resnet50_fc03 : Sigmoid + dropout 0.5 weight_decay=0.005 full dropout 0.25   Acc: 56.421% (1674/2967)
+zsl_resnet50_fc04 : BN + Sigmoid + norm weight
 """
 import torch
 from torch import nn
@@ -25,6 +30,7 @@ import argparse
 from data.data_loader import DataLoader
 from models.zsl_resnet import attrCNN, WARPLoss
 from utils.logger import progress_bar
+
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
 
@@ -33,11 +39,11 @@ BASE_LR = 0.01
 NUM_CLASSES = 150  # set the number of classes in your dataset
 NUM_ATTR = 312
 DATA_DIR = "/home/elvis/data/attribute/CUB_200_2011/zsl/trainval0"
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-MODEL_NAME = "zsl_resnet18_fc03"
+MODEL_NAME = "zsl_resnet50_fc04"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -60,7 +66,6 @@ if args.resume:
 else:
     print("==> Building model...")
     net = attrCNN(num_attr=312, num_classes=150)
-
 
 # optimizer = optim.Adam(net.parameters())
 # optimizer = optim.SGD(net.get_config_optim(BASE_LR / 10.),
@@ -109,7 +114,7 @@ def train(epoch, net, optimizer):
         inputs, targets = Variable(inputs), Variable(targets)
         optimizer.zero_grad()
 
-        out = net(inputs)
+        out, attr = net(inputs)
         loss = criterion(out, targets)
         loss.backward()
         optimizer.step()
@@ -133,7 +138,7 @@ def test(epoch, net):
         if USE_GPU:
             inputs, targets = inputs.cuda(), targets.cuda()
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
-        out = net(inputs)
+        out, attr = net(inputs)
         loss = criterion(out, targets)
 
         test_loss = loss.data[0]
@@ -163,40 +168,48 @@ def test(epoch, net):
         best_acc = acc
 
 
-fc_params = list(map(id, net.cnn.fc.parameters()))
-base_params = list(filter(lambda p: id(p) not in fc_params, net.cnn.parameters()))
-
 for param in net.parameters():
     param.requires_grad = False
 
-# optim_params = list(net.cnn.fc.parameters())
-# for param in optim_params:
-#     param.requires_grad = True
+optim_params = list(net.cnn.fc.parameters())
+for param in optim_params:
+    param.requires_grad = True
 
-# epoch1 = 20
-# optimizer = optim.Adagrad(optim_params, lr=0.01, weight_decay=0.0005)
-# optimizer = optim.Adam(optim_params, weight_decay=0.0005)
-# if start_epoch < epoch1:
-#     for epoch in range(start_epoch, epoch1):
-#         train(epoch, net, optimizer)
-#         test(epoch, net)
-#     start_epoch = epoch1
+epoch1 = 15
+# optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
+optimizer = optim.Adam(optim_params, weight_decay=0.005)
+if start_epoch < epoch1:
+    for epoch in range(start_epoch, epoch1):
+        train(epoch, net, optimizer)
+        test(epoch, net)
+    start_epoch = epoch1
+
 for param in net.cnn.parameters():
     param.requires_grad = True
 
-# optimizer = optim.Adagrad(net.cnn.parameters(), lr=0.001, weight_decay=0.005)
+# fc_params = list(map(id, net.cnn.fc.parameters()))
+# base_params = list(filter(lambda p: id(p) not in fc_params, net.cnn.parameters()))
+# optimizer = optim.Adagrad([{'params': base_params},
+#                            {'params': net.cnn.fc.parameters(), 'lr': 0.005}
+#                            ], lr=0.0005, weight_decay=0.005)
 # start_epoch = 0
 # optimizer = optim.Adam(net.cnn.fc.parameters(), weight_decay=0.0005)
 # optimizer = torch.optim.SGD([
 #     {'params': base_params},
 #     {'params': net.cnn.fc.parameters(), 'lr': 1}
 # ], lr=1e-4, momentum=0.9, weight_decay=0.0005)
-from zeroshot.cub_test import zsl_test
+from zeroshot.cub_test import zsl_test, gzsl_test
 import copy
-# optimizer = optim.Adam(optim_params, weight_decay=0.0005)
+
+optimizer = optim.Adagrad(net.cnn.parameters(), lr=0.001, weight_decay=0.005)
 for epoch in range(start_epoch, 500):
     train(epoch, net, optimizer)
     test(epoch, net)
-    net1 = copy.deepcopy(net)
-    zsl_test(epoch, net1, optimizer)
+    if epoch > 10:
+        net1 = copy.deepcopy(net)
+        zsl_test(epoch, net1, optimizer)
+        del net1
+        # net2 = copy.deepcopy(net)
+        # gzsl_test(epoch, net2, optimizer)
+        # del net2
 log.close()

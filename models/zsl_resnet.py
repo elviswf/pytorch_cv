@@ -15,7 +15,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.nn.init import kaiming_normal, orthogonal
 from torch.autograd import Variable, Function
-from torchvision.models import resnet101, resnet18
+from torchvision.models import resnet18, resnet50, resnet101
 
 
 class AttriCNN(nn.Module):
@@ -26,7 +26,7 @@ class AttriCNN(nn.Module):
         self.cnn.fc = nn.Sequential(
             nn.Linear(feat_size, num_attr),
             nn.Sigmoid(),
-            nn.Dropout(0.5)
+            nn.Dropout(0.4)
         )
         self.fc2 = nn.Linear(num_attr, num_classes, bias=False)
         self.fc2.weight = nn.Parameter(w_attr, requires_grad=False)
@@ -37,34 +37,73 @@ class AttriCNN(nn.Module):
     def forward(self, x):
         attr = self.cnn(x)
         attr_y = self.fc2(attr)  # (batch,   square sum root
-        return attr_y
+        return attr_y, attr
 
 
 def attrCNN(num_attr=312, num_classes=150):
-    cnn = resnet18(pretrained=True)
+    cnn = resnet50(pretrained=True)
     w_attr = np.load("data/order_cub_attr.npy")
     # w_attr_sum = np.sum(w_attr, 0)
     # w_attr = w_attr/w_attr_sum
     # w_attr[:, 0].sum()
-    w_attr = w_attr[:num_classes, :]
+    w_attr = w_attr[:num_classes, :] / 100.
     w_attr = torch.FloatTensor(w_attr)  # 312 * 150
     # (torch.ones((1, 2)).mm(torch.ones((2, 3))))
     return AttriCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
 
 
-def attrCNN_cubfull(num_attr=312, num_classes=200):
-    cnn = resnet101(pretrained=True)
+def attrWeightedCNN(num_attr=312, num_classes=150):
+    cnn = resnet50(pretrained=True)
     w_attr = np.load("data/order_cub_attr.npy")
-    w_attr = torch.FloatTensor(w_attr)
-    return AttriCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
+    w_attr = w_attr[:num_classes, :] / 100.
+    w_attr = torch.FloatTensor(w_attr)  # 312 * 150
+    return AttriWeightedCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
+
+
+def attrCNN_cubfull(num_attr=312, num_classes=200):
+    cnn = resnet50(pretrained=True)
+    w_attr = np.load("data/order_cub_attr.npy")
+    w_attr = torch.FloatTensor(w_attr / 100.)  # 312 * 200
+    return AttriWeightedCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
 
 
 def attrCNN_awa2(num_attr=85, num_classes=40):
     cnn = resnet18(pretrained=True)
     w_attr = np.load("data/order_awa2_attr.npy")
     w_attr = w_attr[:num_classes, :]
-    w_attr = torch.FloatTensor(w_attr)
+    w_attr = torch.FloatTensor(w_attr / 100.)
     return AttriCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
+
+
+class AttriWeightedCNN(nn.Module):
+    def __init__(self, cnn, w_attr, num_attr=312, num_classes=150):
+        super(AttriWeightedCNN, self).__init__()
+        self.cnn = nn.Sequential(*list(cnn.children())[:-1])
+        self.feat_size = cnn.fc.in_features
+
+        self.fc0 = nn.Linear(self.feat_size, num_attr)
+        # orthogonal(self.fc0.weight)
+
+        self.fc1 = nn.Sequential(
+            nn.Linear(self.feat_size, num_attr),
+            nn.Sigmoid(),
+            nn.Dropout(0.5)
+        )
+        # for m in self.fc1:
+        #     if hasattr(m, 'weight'):
+        #         orthogonal(m.weight)
+        self.fc2 = nn.Linear(num_attr, num_classes, bias=False)
+        self.fc2.weight = nn.Parameter(w_attr, requires_grad=False)
+
+    def forward(self, x):
+        feat = self.cnn(x)
+        feat = feat.view(feat.shape[0], -1)
+        # wt = self.fc0_drop(self.fc0(feat))
+        wt = self.fc0(feat)
+        attr = self.fc1(feat)
+        xt = attr.mul(wt)
+        attr_y = self.fc2(xt)  # (batch,   square sum root
+        return attr_y, attr
 
 
 class WARP(Function):
