@@ -25,13 +25,16 @@ class AttriCNN(nn.Module):
         self.feat_size = cnn.fc.in_features
 
         self.fc0 = nn.Sequential(
-            nn.Linear(self.feat_size, 128),
-            nn.Linear(128, self.feat_size),
-            nn.Dropout(0.5),
-            nn.Sigmoid(),
+            nn.Linear(num_attr, num_attr),
+            # nn.Sigmoid(),
         )
         self.fc1 = nn.Sequential(
+            # nn.Linear(self.feat_size, 32),
+            # nn.Linear(32, num_attr),
             nn.Linear(self.feat_size, num_attr),
+            nn.Dropout(0.5),
+            # nn.Tanh(),
+            nn.Sigmoid(),
         )
 
         self.fc2 = nn.Linear(num_attr, num_classes, bias=False)
@@ -40,9 +43,8 @@ class AttriCNN(nn.Module):
     def forward(self, x):
         feat = self.cnn(x)
         feat = feat.view(feat.shape[0], -1)
-        wt = self.fc0(feat)
-        xt = wt.mul(feat)
-        attr = self.fc1(xt)
+        wt = self.fc1(feat)
+        attr = self.fc0(wt)
         attr_y = self.fc2(attr)  # xt (batch,   square sum root
         return attr_y, attr
 
@@ -72,7 +74,7 @@ def attrWCNNg(num_attr=312, num_classes=200):
     w_attr = np.load("data/order_cub_attr.npy")
     w_attr = w_attr / 100.
     w_attr = torch.FloatTensor(w_attr)  # 312 * 150
-    return AttriCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
+    return AttriWeightedCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
 
 
 def attrCNN_cubfull(num_attr=312, num_classes=200):
@@ -98,7 +100,6 @@ class AttriWeightedCNN(nn.Module):
 
         self.fc0 = nn.Sequential(
             nn.Linear(self.feat_size, num_attr),
-            # nn.Dropout(0.5),
             # nn.Sigmoid(),
         )
         self.fc1 = nn.Sequential(
@@ -106,6 +107,7 @@ class AttriWeightedCNN(nn.Module):
             # nn.Linear(32, num_attr),
             nn.Linear(self.feat_size, num_attr),
             nn.Dropout(0.5),
+            # nn.Tanh(),
             nn.Sigmoid(),
         )
 

@@ -38,7 +38,7 @@ NUM_ATTR = 312
 DATA_DIR = "/home/elvis/code/data/cub200"
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-MODEL_NAME = "resnet18_binearAR3"
+MODEL_NAME = "resnet18_binearAR411"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -149,31 +149,30 @@ def test(epoch, net):
         best_acc = acc
 
 
-for param in net.parameters():
-    param.requires_grad = False
-
-optim_params = list(net.bilinear1.parameters()) + list(net.fc.parameters())
-
-for param in optim_params:
-    param.requires_grad = True
-
-epoch1 = 12
+epoch1 = 10
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
-optimizer = optim.Adam(optim_params, weight_decay=0.0005)
 if start_epoch < epoch1:
+    for param in net.parameters():
+        param.requires_grad = False
+    # optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
+    optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters()) + list(net.fc.parameters())
+    for param in optim_params:
+        param.requires_grad = True
+    optimizer = optim.Adam(optim_params, weight_decay=0.0005)
     for epoch in range(start_epoch, epoch1):
         train(epoch, net, optimizer)
         test(epoch, net)
     start_epoch = epoch1
 
-optim_params = list(net.parameters())
-for param in optim_params:
-    param.requires_grad = True
 # fc_params = list(map(id, net.fc2.parameters()))
 # base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
-# optimizer = optim.SGD(net.parameters(), lr=0.0001, weight_decay=0.0005)
-optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.0005)
-for epoch in range(start_epoch, 500):
+base_params = list(net.parameters())
+for param in base_params:
+    param.requires_grad = True
+
+optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.0005)
+
+for epoch in range(start_epoch, 100):
     train(epoch, net, optimizer)
     test(epoch, net)
 log.close()

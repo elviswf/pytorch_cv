@@ -172,24 +172,6 @@ def test(epoch, net):
         best_acc = acc
 
 
-for param in net.parameters():
-    param.requires_grad = False
-
-# optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
-optim_params = list(net.fc0.parameters())
-for param in optim_params:
-    param.requires_grad = True
-
-epoch1 = 12
-# optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
-optimizer = optim.Adam(optim_params, weight_decay=0.005)
-if start_epoch < epoch1:
-    for epoch in range(start_epoch, epoch1):
-        train(epoch, net, optimizer)
-        test(epoch, net)
-    start_epoch = epoch1
-
-
 # optimizer = optim.Adagrad([{'params': base_params},
 #                            {'params': net.cnn.fc.parameters(), 'lr': 0.005}
 #                            ], lr=0.0005, weight_decay=0.005)
@@ -199,6 +181,22 @@ if start_epoch < epoch1:
 #     {'params': base_params},
 #     {'params': net.cnn.fc.parameters(), 'lr': 1}
 # ], lr=1e-4, momentum=0.9, weight_decay=0.0005)
+
+epoch1 = 10
+# optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
+if start_epoch < epoch1:
+    for param in net.parameters():
+        param.requires_grad = False
+    # optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
+    optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
+    for param in optim_params:
+        param.requires_grad = True
+    optimizer = optim.Adam(optim_params, weight_decay=0.005)
+    for epoch in range(start_epoch, epoch1):
+        train(epoch, net, optimizer)
+        test(epoch, net)
+    start_epoch = epoch1
+
 fc_params = list(map(id, net.fc2.parameters()))
 base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
 
@@ -206,8 +204,7 @@ for param in base_params:
     param.requires_grad = True
 
 optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.005)
-
-from zeroshot.cub_test import zsl_test, gzsl_test
+from zeroshot.cub_test import zsl_test, gzsl_test, gzsl_test0
 import copy
 
 for epoch in range(start_epoch, 100):

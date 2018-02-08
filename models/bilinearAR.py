@@ -21,8 +21,8 @@ class BilinearAR(nn.Module):
 
         self.fc2 = nn.Sequential(
             nn.Linear(in_features, out_features),
+            nn.Dropout(0.5),
             nn.Sigmoid(),
-            nn.Dropout(0.5)
         )
 
     def forward(self, x):
@@ -55,8 +55,8 @@ class BilinearNet(nn.Module):
 
         self.bilinear1 = BilinearAR(self.feat_size, num_feat)
         self.fc = nn.Sequential(
+            nn.Linear(num_feat, num_classes),
             nn.Dropout(0.5),
-            nn.Linear(num_feat, num_classes)
         )
 
     def forward(self, x):
@@ -64,6 +64,36 @@ class BilinearNet(nn.Module):
         x1 = x1.view(x1.size(0), -1)
         xt = self.bilinear1(x1)
         out = self.fc(xt)
+        return out
+
+
+class NeuralWeightNet(nn.Module):
+    def __init__(self, cnn, num_feat=512, num_classes=200):
+        super(NeuralWeightNet, self).__init__()
+        self.feat_size = cnn.fc.in_features
+        self.cnn = nn.Sequential(*list(cnn.children())[:-1])
+        self.fc0 = nn.Sequential(
+            nn.Linear(self.feat_size, num_feat),
+            nn.Dropout(0.5),
+        )
+        self.fc1 = nn.Sequential(
+            nn.Linear(self.feat_size, num_feat),
+            nn.Dropout(0.5),
+            nn.ReLU(),
+        )
+
+        self.fc = nn.Sequential(
+            nn.Linear(num_feat, num_classes),
+            # nn.Dropout(0.5),
+        )
+
+    def forward(self, x):
+        feat = self.cnn(x)
+        feat = feat.view(feat.shape[0], -1)
+        attr = self.fc0(feat)
+        wt = self.fc1(feat)
+        xt = wt.mul(attr)
+        out = self.fc(xt)  # xt (batch,   square sum root
         return out
 
 
@@ -106,7 +136,7 @@ def resnet18AR(num_classes=200):
 
 def resnet18ARfc(num_classes=200):
     cnn = resnet18(pretrained=True)
-    return BilinearNet(cnn, num_feat=512, num_classes=num_classes)
+    return NeuralWeightNet(cnn, num_feat=512, num_classes=num_classes)
 
 
 class NeuralWeightedUnit(nn.Module):
