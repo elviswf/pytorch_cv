@@ -88,3 +88,33 @@ with open(order_classes_file, "w") as fw:
     fw.writelines("\n".join(order_classes))
 
 
+"""
+cub gzsl rename directory
+"""
+gzsl_dir = "/home/elvis/data/attribute/CUB_200_2011/zsl/gzsl_test/val"
+
+order_classes = []
+order_classes_file = os.path.join(origin_dir, "zsl", "order_classes.txt")
+with open(order_classes_file, "r") as fr:
+    for line in fr.readlines():
+        order_classes.append(line.strip())
+
+classes_to_rank = dict()
+for ri, ci in enumerate(order_classes):
+    classes_to_rank[ci] = ri
+
+
+for c_fi in os.listdir(gzsl_dir):
+    c_ri = classes_to_rank[c_fi] + 1
+    new_name = ("%03d" % c_ri) + "." + c_fi.split(".")[1]
+    os.rename(os.path.join(gzsl_dir, c_fi), os.path.join(gzsl_dir, new_name))
+
+
+cub_attr = np.load("data/order_cub_attr.npy")
+cub_attr.shape
+cub_attr_sum = np.sum(cub_attr, axis=0)
+cub_attr1 = cub_attr / cub_attr_sum
+cub_attr1.shape
+cub_attr[10, 21] / cub_attr_sum[21]
+cub_attr1[10, 21]
+np.save("data/order_cub_attr1.npy", cub_attr1)

@@ -5,10 +5,16 @@
 
  cub.py
 watch --color -n1 gpustat -cpu
-CUDA_VISIBLE_DEVICES=3 python cub_attr1.py
+CUDA_VISIBLE_DEVICES=4 python cub_attr1.py
 
-attr_resnet18_fc00 : Sigmoid + dropout 0.5   461 epoch Acc: 67.294% (3899/5794)
+resnet50_binearAR1 : resnetAR  act Acc: 79.997% (4635/5794)  Acc: 68.260% (3955/5794)
+resnet50_binearAR2 : resnet2AR
+resnet50_binearAR3 : resnetAR + relu 67%   no act:  Acc: 64.446% (3734/5794)
+resnet50_binearAR4: NeWnet train not easy   Acc: 79.789% (4623/5794)
 
+resnet18_binearAR1: resnet18ARfc   Acc: 74.698% (4328/5794)
+resnet18_binearAR2: resnet18ARfc   bn   Acc: 74.629% (4324/5794)
+resnet18_binearAR3: resnet18ARfc + sigmoid  no better Acc: 74.784% (4333/5794)
 """
 import torch
 from torch import nn
@@ -19,8 +25,9 @@ import os
 import argparse
 from data.data_loader import DataLoader
 # from models.attr_resnet import attrCNN, WARPLoss
-from models.bilinearAR import resnetAR
+from models.bilinearAR import resnetAR, resnet18AR, resnet18ARfc
 from utils.logger import progress_bar
+
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
 
@@ -31,11 +38,11 @@ NUM_ATTR = 312
 DATA_DIR = "/home/elvis/code/data/cub200"
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-MODEL_NAME = "binearAR_resnet50"
+MODEL_NAME = "resnet18_binearAR3"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
-parser = argparse.ArgumentParser(description='PyTorch binearAR_resnet50 Training')
+parser = argparse.ArgumentParser(description='PyTorch resnet50_binearAR2 Training')
 parser.add_argument('--lr', default=BASE_LR, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', default=False, help='resume from checkpoint')
 parser.add_argument('--data', default=DATA_DIR, type=str, help='file path of the dataset')
@@ -53,16 +60,18 @@ if args.resume:
     optimizer = checkpoint["optimizer"]
 else:
     print("==> Building model...")
-    net = resnetAR(num_classes=200)
+    net = resnet18ARfc(num_classes=200)
 
 # print(torch_summarize(net))
 # print(net)
+log = open("./log/" + MODEL_NAME + '_cub.txt', 'a')
+log.write(str(net.__repr__))
+
 if USE_GPU:
     net.cuda()
     # net = torch.nn.DataParallel(net.module, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 
-log = open("./log/" + MODEL_NAME + '_cub.txt', 'a')
 print("==> Preparing data...")
 data_loader = DataLoader(data_dir=args.data, image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
 inputs, classes = next(iter(data_loader.load_data()))
@@ -144,10 +153,11 @@ for param in net.parameters():
     param.requires_grad = False
 
 optim_params = list(net.bilinear1.parameters()) + list(net.fc.parameters())
+
 for param in optim_params:
     param.requires_grad = True
 
-epoch1 = 20
+epoch1 = 12
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
 optimizer = optim.Adam(optim_params, weight_decay=0.0005)
 if start_epoch < epoch1:
@@ -156,14 +166,13 @@ if start_epoch < epoch1:
         test(epoch, net)
     start_epoch = epoch1
 
-for param in net.parameters():
+optim_params = list(net.parameters())
+for param in optim_params:
     param.requires_grad = True
-
 # fc_params = list(map(id, net.fc2.parameters()))
 # base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
-
-optimizer = optim.Adagrad(net.parameters(), lr=0.001, weight_decay=0.0005)
-# optimizer = optim.Adam(optim_params, weight_decay=0.0005)
+# optimizer = optim.SGD(net.parameters(), lr=0.0001, weight_decay=0.0005)
+optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.0005)
 for epoch in range(start_epoch, 500):
     train(epoch, net, optimizer)
     test(epoch, net)

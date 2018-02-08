@@ -8,10 +8,7 @@ watch --color -n1 gpustat -cpu
 CUDA_VISIBLE_DEVICES=1 python awa2_attr1.py
 
 zsl_resnet18_fc00_awa2 : Sigmoid + dropout 0.5 Acc: 92.320% (5614/6081)   ZSL Acc: 24.939% (1742/6985)
-zsl_resnet18_fc01_awa2 : Sigmoid + dropout 0.5 weight_decay=0.005 Acc: 82.552% (5020/6081)  Acc: 24.939% (1742/6985)
-zsl_resnet18_fc01_awa2 :  fc0   dp 0.5
-zsl_resnet18_fc02_awa2 :  fc1   dp 0.5
-zsl_resnet18_fc03_awa2 : fc0   dp 0.5 full   Acc: 73.858% (5159/6985)
+Acc: 72.684% (5077/6985)
 """
 import torch
 from torch import nn
@@ -28,14 +25,14 @@ from utils.logger import progress_bar
 
 # Learning rate parameters
 BASE_LR = 0.01
-NUM_CLASSES = 40  # set the number of classes in your dataset
+NUM_CLASSES = 50  # set the number of classes in your dataset
 NUM_ATTR = 85
 DATA_DIR = "/home/elvis/data/attribute/AwA/Animals_with_Attributes2/zsl/trainfullval"
 BATCH_SIZE = 128
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-MODEL_NAME = "zsl_resnet18_fc03_awa2"
+MODEL_NAME = "zsl_resnet18_fc00_awa2"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -142,18 +139,18 @@ def test(epoch, net):
         best_acc = acc
 
 
-for param in net.parameters():
-    param.requires_grad = False
-
-optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
-# optim_params = list(net.fc0.parameters())
-for param in optim_params:
-    param.requires_grad = True
-
 epoch1 = 6
-# optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
-optimizer = optim.Adam(optim_params, weight_decay=0.005)
 if start_epoch < epoch1:
+    for param in net.parameters():
+        param.requires_grad = False
+
+    optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
+    # optim_params = list(net.fc0.parameters())
+    for param in optim_params:
+        param.requires_grad = True
+    # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
+    optimizer = optim.Adam(optim_params, weight_decay=0.005)
+
     for epoch in range(start_epoch, epoch1):
         train(epoch, net, optimizer)
         test(epoch, net)

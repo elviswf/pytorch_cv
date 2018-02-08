@@ -22,7 +22,7 @@ def zsl_test(epoch, net, optimizer):
     DATA_DIR = "/home/elvis/data/attribute/AwA/Animals_with_Attributes2/zsl/zsl_test"
     BATCH_SIZE = 32
     IMAGE_SIZE = 224
-    best_acc = 56
+    best_acc = 74
     USE_GPU = torch.cuda.is_available()
     order_awa2_attr = np.load("data/order_awa2_attr.npy")
     # w_attr_sum = np.sum(w_attr, 0)
@@ -46,7 +46,7 @@ def zsl_test(epoch, net, optimizer):
         if USE_GPU:
             inputs, targets = inputs.cuda(), targets.cuda()
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
-        out = net(inputs)
+        out, attr = net(inputs)
         loss = criterion(out, targets)
 
         test_loss = loss.data[0]

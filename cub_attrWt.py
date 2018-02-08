@@ -20,9 +20,14 @@ zsl_resnet50_fc02 : Sigmoid + dropout 0.5 weight_decay=0.005 full dropout 0.4 Ac
 zsl_resnet50_fc03 : Sigmoid + dropout 0.5 weight_decay=0.005 full dropout 0.25   Acc: 56.421% (1674/2967)
 zsl_resnet50_fc04 : Sigmoid + norm weight
 zsl_resnet50_fc05 : bilinear  Acc: 63.364% (1880/2967)  | Acc: 98.027% (8647/8821)
-zsl_resnet50_fc05_1   dropout0.5                            Acc: 63.802% (1893/2967)
-zsl_resnet50_fc05_2
-zsl_resnet50_fc05_3
+zsl_resnet50_fc05_1   fc2 dropout0.5               Acc: 63.802% (1893/2967)
+zsl_resnet50_fc05_2   fc1 dropout0.5               Acc: 64.611% (1917/2967)
+zsl_resnet50_fc05_3:  fc1 single unit dropout 0.5  Acc: 64.375% (1910/2967)  fc1  Acc: 64.105% (1902/2967)
+zsl_resnet50_fc05_4：    no dropout   Acc: 62.150% (1844/2967)   dropout 0.2 Acc: 64.847% (1924/2967)
+zsl_resnet50_fc05_32  sigmoid single drop  Acc: 37.984% (1127/2967) zsl_resnet50_fc05_33 2 fc  Acc: 47.893% (1421/2967)
+zsl_resnet50_fc05_34 2 fc no sigmoid  Acc: 61.712% (1831/2967)   fc no sigmoid  Acc: 64.408% (1911/2967)
+
+zsl_resnet50_fc06: fc 200
 """
 import torch
 from torch import nn
@@ -47,7 +52,7 @@ BATCH_SIZE = 64
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-MODEL_NAME = "zsl_resnet50_fc05_4"
+MODEL_NAME = "zsl_resnet50_fc06"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -170,11 +175,12 @@ def test(epoch, net):
 for param in net.parameters():
     param.requires_grad = False
 
-optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
+# optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
+optim_params = list(net.fc0.parameters())
 for param in optim_params:
     param.requires_grad = True
 
-epoch1 = 15
+epoch1 = 12
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
 optimizer = optim.Adam(optim_params, weight_decay=0.005)
 if start_epoch < epoch1:
@@ -183,11 +189,7 @@ if start_epoch < epoch1:
         test(epoch, net)
     start_epoch = epoch1
 
-for param in net.cnn.parameters():
-    param.requires_grad = True
 
-fc_params = list(map(id, net.fc2.parameters()))
-base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
 # optimizer = optim.Adagrad([{'params': base_params},
 #                            {'params': net.cnn.fc.parameters(), 'lr': 0.005}
 #                            ], lr=0.0005, weight_decay=0.005)
@@ -197,10 +199,17 @@ base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
 #     {'params': base_params},
 #     {'params': net.cnn.fc.parameters(), 'lr': 1}
 # ], lr=1e-4, momentum=0.9, weight_decay=0.0005)
+fc_params = list(map(id, net.fc2.parameters()))
+base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
+
+for param in base_params:
+    param.requires_grad = True
+
+optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.005)
+
 from zeroshot.cub_test import zsl_test, gzsl_test
 import copy
 
-optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.005)
 for epoch in range(start_epoch, 100):
     train(epoch, net, optimizer)
     test(epoch, net)

@@ -1,48 +1,41 @@
 # -*- coding: utf-8 -*-
 """
-@Time    : 2017/12/4 15:42
+@Time    : 2017/11/5 22:22
 @Author  : Elvis
 
- awa2.py
 watch --color -n1 gpustat -cpu
-CUDA_VISIBLE_DEVICES=1 python awa2_attr1.py
+CUDA_VISIBLE_DEVICES=5 python cub_attr1.py
 
-zsl_resnet18_fc00_awa2 : Sigmoid + dropout 0.5 Acc: 92.320% (5614/6081)   ZSL Acc: 24.939% (1742/6985)
-zsl_resnet18_fc01_awa2 : Sigmoid + dropout 0.5 weight_decay=0.005 Acc: 82.552% (5020/6081)  Acc: 24.939% (1742/6985)
-zsl_resnet18_fc01_awa2 :  fc0   dp 0.5
-zsl_resnet18_fc02_awa2 :  fc1   dp 0.5
-zsl_resnet18_fc03_awa2 : fc0   dp 0.5 full   Acc: 73.858% (5159/6985)
+cifar_binearAR1 : Acc: 80.960% (8096/10000)
+cifar_binearAR2 : act +fc   Acc: 81.590% (8159/10000)
+cifar_binearAR3 : NeWNet   Acc: 81.110% (8111/10000)  Acc: 48.060% (24030/50000)
+cifar_binearAR4 : act +fc  dropout  trainable Acc: 82.040% (8204/10000)  Acc: 94.292% (47146/50000)
 """
 import torch
-from torch import nn
 from torch import optim
 from torch.backends import cudnn
-from torch.autograd import Variable
+from torch import nn
+import torchvision
+from torchvision import transforms
 import os
 import argparse
-from data.data_loader import DataLoader
-from models.zsl_resnet import attrCNN_awa2, WARPLoss
+from models.bilinearAR import resnetAR, resnet18AR, resnet18ARfc
 from utils.logger import progress_bar
-# from utils.param_count import torch_summarize, lr_scheduler
-# import pickle
+from torch.autograd import Variable
 
 # Learning rate parameters
 BASE_LR = 0.01
-NUM_CLASSES = 40  # set the number of classes in your dataset
-NUM_ATTR = 85
-DATA_DIR = "/home/elvis/data/attribute/AwA/Animals_with_Attributes2/zsl/trainfullval"
-BATCH_SIZE = 128
+NUM_CLASSES = 100  # set the number of classes in your dataset
+BATCH_SIZE = 64
 IMAGE_SIZE = 224
-# MODEL_NAME = "zsl_resnet18_fc1"
-# MODEL_NAME = "zsl_resnet18_fc1_end"
-MODEL_NAME = "zsl_resnet18_fc03_awa2"
+DATA_DIR = "/home/elvis/code/data/cifar"
+MODEL_NAME = "cifar_binearAR4"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
-parser = argparse.ArgumentParser(description='PyTorch zsl_resnet18_fc00_awa2 Training')
+parser = argparse.ArgumentParser(description='PyTorch cifar_binearAR1 Training')
 parser.add_argument('--lr', default=BASE_LR, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', default=False, help='resume from checkpoint')
-parser.add_argument('--data', default=DATA_DIR, type=str, help='file path of the dataset')
 args = parser.parse_args()
 
 best_acc = 0.
@@ -57,21 +50,40 @@ if args.resume:
     optimizer = checkpoint["optimizer"]
 else:
     print("==> Building model...")
-    net = attrCNN_awa2(num_attr=NUM_ATTR, num_classes=NUM_CLASSES)
+    net = resnet18ARfc(num_classes=100)
 
+print("==> Preparing data...")
+transform_train = transforms.Compose([
+    # transforms.RandomCrop(IMAGE_SIZE, padding=4),
+    transforms.Resize(IMAGE_SIZE),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+transforms_test = transforms.Compose([
+    transforms.Resize(IMAGE_SIZE),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+train_set = torchvision.datasets.CIFAR100(root=DATA_DIR, train=True, download=False, transform=transform_train)
+train_loader = torch.utils.data.DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
+
+test_set = torchvision.datasets.CIFAR100(root=DATA_DIR, train=False, download=False, transform=transforms_test)
+test_loader = torch.utils.data.DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=2)
+
+classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+
+# print(torch_summarize(net))
+# print(net)
 if USE_GPU:
     net.cuda()
     # net = torch.nn.DataParallel(net.module, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 
-log = open("./log/" + MODEL_NAME + '.txt', 'a')
+log = open("./log/" + MODEL_NAME + '_cifar100.txt', 'a')
 print("==> Preparing data...")
-data_loader = DataLoader(data_dir=args.data, image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
-inputs, classes = next(iter(data_loader.load_data()))
-# out = torchvision.utils.make_grid(inputs)
-# data_loader.show_image(out, title=[data_loader.data_classes[c] for c in classes])
-train_loader = data_loader.load_data(data_set='train')
-test_loader = data_loader.load_data(data_set='val')
 criterion = nn.CrossEntropyLoss()
 
 
@@ -88,7 +100,7 @@ def train(epoch, net, optimizer):
         inputs, targets = Variable(inputs), Variable(targets)
         optimizer.zero_grad()
 
-        out, attr = net(inputs)
+        out = net(inputs)
         loss = criterion(out, targets)
         loss.backward()
         optimizer.step()
@@ -112,7 +124,7 @@ def test(epoch, net):
         if USE_GPU:
             inputs, targets = inputs.cuda(), targets.cuda()
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
-        out, attr = net(inputs)
+        out = net(inputs)
         loss = criterion(out, targets)
 
         test_loss = loss.data[0]
@@ -128,7 +140,7 @@ def test(epoch, net):
     log.flush()
 
     acc = 100. * correct / total
-    if epoch > 2 and acc > best_acc:
+    if epoch > 9 and acc > best_acc:
         print("Saving checkpoint")
         state = {
             'net': net,
@@ -145,39 +157,29 @@ def test(epoch, net):
 for param in net.parameters():
     param.requires_grad = False
 
-optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
-# optim_params = list(net.fc0.parameters())
+optim_params = list(net.bilinear1.parameters())
 for param in optim_params:
     param.requires_grad = True
 
-epoch1 = 6
+epoch1 = 8
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
-optimizer = optim.Adam(optim_params, weight_decay=0.005)
+optimizer = optim.Adam(optim_params, weight_decay=0.0005)
 if start_epoch < epoch1:
     for epoch in range(start_epoch, epoch1):
         train(epoch, net, optimizer)
         test(epoch, net)
     start_epoch = epoch1
 
-fc_params = list(map(id, net.fc2.parameters()))
-base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
-
-for param in base_params:
+optim_params = list(net.parameters())
+for param in optim_params:
     param.requires_grad = True
 
-optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.005)
+# fc_params = list(map(id, net.fc2.parameters()))
+# base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
 
-from zeroshot.awa2_test import zsl_test
-import copy
-
-for epoch in range(start_epoch, 100):
+# optimizer = optim.SGD(optim_params, lr=0.0001, weight_decay=0.0005)
+optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.0005)
+for epoch in range(start_epoch, 200):
     train(epoch, net, optimizer)
     test(epoch, net)
-    if epoch > 6:
-        net1 = copy.deepcopy(net)
-        zsl_test(epoch, net1, optimizer)
-        del net1
-        # net2 = copy.deepcopy(net)
-        # gzsl_test(epoch, net2, optimizer)
-        # del net2
 log.close()
