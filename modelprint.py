@@ -7,7 +7,7 @@
 """
 import torch
 from torchvision.models import alexnet
-MODEL_NAME = "gzsl_resnet50_cub_epoch16acc67"
+MODEL_NAME = "zsl_resnet50_cub_epoch15acc68"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 

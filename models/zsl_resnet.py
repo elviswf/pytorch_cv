@@ -8,14 +8,14 @@ for m in self.fc1:
         orthogonal(m.weight)
 """
 import numpy as np
-import random
-import math
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch.nn.init import kaiming_normal, orthogonal
-from torch.autograd import Variable, Function
+from torch.autograd import Variable
 from torchvision.models import resnet18, resnet50, resnet101
+
+
+# from torch.nn.init import kaiming_normal, orthogonal
 
 
 class AttriCNN(nn.Module):
@@ -103,12 +103,12 @@ class AttriWeightedCNN(nn.Module):
             # nn.Sigmoid(),
         )
         self.fc1 = nn.Sequential(
-            # nn.Linear(self.feat_size, 32),
-            # nn.Linear(32, num_attr),
             nn.Linear(self.feat_size, num_attr),
             nn.Dropout(0.5),
-            # nn.Tanh(),
             nn.Sigmoid(),
+            # nn.Tanh(),
+            # nn.Linear(self.feat_size, 32),
+            # nn.Linear(32, num_attr),
         )
 
         self.fc2 = nn.Linear(num_attr, num_classes, bias=False)
@@ -122,7 +122,6 @@ class AttriWeightedCNN(nn.Module):
         xt = wt.mul(attr)
         attr_y = self.fc2(xt)  # xt (batch,   square sum root
         return attr_y, attr
-
 
 
 def CNNw(num_classes=150):
@@ -154,3 +153,24 @@ class DeepRIS(nn.Module):
         return attr_y, attr
 
 
+def soft_celoss(logit, prob):
+    """ Cross-entropy function"""
+    soft_logit = F.log_softmax(logit, dim=1)
+    loss = torch.sum(prob * soft_logit, 1)
+    return loss
+
+
+def soft_loss(out, targets):
+    """Compute the total loss"""
+    ws = np.load("data/cub_ws_18.npy")
+    ws = torch.FloatTensor(ws).cuda()
+    targets_data = targets.data
+    targets_data = targets_data.type(torch.cuda.LongTensor)
+    soft_target = ws[targets_data]
+    soft_target = Variable(soft_target, requires_grad=False).cuda()
+    soft_ce = - torch.mean(soft_celoss(out, soft_target))
+
+    ce = F.cross_entropy(out, targets)
+    alpha = 0.5
+    loss = alpha * ce + (1. - alpha) * soft_ce
+    return loss

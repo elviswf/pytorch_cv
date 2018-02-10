@@ -24,6 +24,7 @@ gzsl_resnet50_fc03 : fc2 drop sigmoid     Acc: 67.914% (2015/2967)   gzsl:  Acc:
 gzsl_resnet50_fc04 :  fc2 dropout no good   Acc: 64.948% (1927/2967)   Acc: 65.285% (1937/2967)
 gzsl_resnet50_fc05:  fc2 drop sigmoid      gzsl  Acc: 32.652% (1549/4744)  no sigmoid Acc: 61.139% (1814/2967)
 gzsl_resnet50_fc06: squeeze net
+gzsl_resnet50_fc08: soft loss
 """
 import torch
 from torch import nn
@@ -33,9 +34,9 @@ from torch.autograd import Variable
 import os
 import argparse
 from data.data_loader import DataLoader
-from models.zsl_resnet import attrCNN, attrWeightedCNN, attrWCNNg
-from models.focalLoss import FocalLoss
+from models.zsl_resnet import attrCNN, attrWeightedCNN, attrWCNNg, soft_loss
 from utils.logger import progress_bar
+# from models.focalLoss import FocalLoss
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
 
@@ -43,12 +44,12 @@ from utils.logger import progress_bar
 BASE_LR = 0.01
 NUM_CLASSES = 200  # set the number of classes in your dataset
 NUM_ATTR = 312
-DATA_DIR = "/home/elvis/data/attribute/CUB_200_2011/zsl/trainval0"
+DATA_DIR = "/home/elvis/data/attribute/CUB_200_2011/zsl/trainval"
 BATCH_SIZE = 64
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-MODEL_NAME = "gzsl_resnet50_fc071"
+MODEL_NAME = "gzsl_resnet50_fc0822"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -87,14 +88,11 @@ inputs, classes = next(iter(data_loader.load_data()))
 # data_loader.show_image(out, title=[data_loader.data_classes[c] for c in classes])
 train_loader = data_loader.load_data(data_set='train')
 test_loader = data_loader.load_data(data_set='val')
-criterion = nn.CrossEntropyLoss()
+# criterion = nn.CrossEntropyLoss()
+criterion = soft_loss
 # criterion = FocalLoss(class_num=NUM_CLASSES, gamma=0)
 
 
-# def one_hot_emb(batch, depth=NUM_CLASSES):
-#     emb = nn.Embedding(depth, depth)
-#     emb.weight.data = torch.eye(depth)
-#     return emb(batch).data
 def one_hot_emb(y, depth=NUM_CLASSES):
     y = y.view((-1, 1))
     one_hot = torch.FloatTensor(y.size(0), depth).zero_()
@@ -201,7 +199,7 @@ for epoch in range(start_epoch, 100):
         net1 = copy.deepcopy(net)
         zsl_test(epoch, net1, optimizer)
         del net1
-        # net2 = copy.deepcopy(net)
-        # gzsl_test(epoch, net2, optimizer)
-        # del net2
+        net2 = copy.deepcopy(net)
+        gzsl_test(epoch, net2, optimizer)
+        del net2
 log.close()

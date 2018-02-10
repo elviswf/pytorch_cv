@@ -118,3 +118,25 @@ cub_attr1.shape
 cub_attr[10, 21] / cub_attr_sum[21]
 cub_attr1[10, 21]
 np.save("data/order_cub_attr1.npy", cub_attr1)
+
+"""
+pairwise_distances matrix  label propagation
+"""
+import numpy as np
+from sklearn.metrics.pairwise import pairwise_distances
+w = np.load("data/order_cub_attr.npy")
+wd = pairwise_distances(w, metric="euclidean")
+num = w.shape[0]
+ws = np.diag(np.ones(num))
+
+beta = 1.8
+for i in range(num):
+    for j in range(i):
+        ws[i, j] = np.exp(-beta * wd[i, j]**2 / (np.partition(wd[i, :], 1)[1] * np.partition(wd[j, :], 1)[1]))
+        if ws[i, j] < 0.05:
+            ws[i, j] = 0.
+        ws[j, i] = ws[i, j]
+
+ws_p = ws / np.sum(ws, axis=0)
+ws_p.diagonal()
+np.save("data/cub_ws_18.npy", ws_p)
