@@ -13,8 +13,6 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torchvision.models import resnet18, resnet50, resnet101
-
-
 # from torch.nn.init import kaiming_normal, orthogonal
 
 
@@ -26,7 +24,7 @@ class AttriCNN(nn.Module):
 
         self.fc0 = nn.Sequential(
             nn.Linear(num_attr, num_attr),
-            # nn.Sigmoid(),
+            # nn.Tanh(),
         )
         self.fc1 = nn.Sequential(
             # nn.Linear(self.feat_size, 32),
@@ -100,12 +98,12 @@ class AttriWeightedCNN(nn.Module):
 
         self.fc0 = nn.Sequential(
             nn.Linear(self.feat_size, num_attr),
-            # nn.Sigmoid(),
+            # nn.Tanh(),
         )
         self.fc1 = nn.Sequential(
             nn.Linear(self.feat_size, num_attr),
             nn.Dropout(0.5),
-            nn.Sigmoid(),
+            # nn.Sigmoid(),
             # nn.Tanh(),
             # nn.Linear(self.feat_size, 32),
             # nn.Linear(32, num_attr),

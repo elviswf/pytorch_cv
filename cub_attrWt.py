@@ -52,7 +52,7 @@ BATCH_SIZE = 64
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-MODEL_NAME = "zsl_resnet50_fc06"
+MODEL_NAME = "zsl_resnet50_fc003"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
