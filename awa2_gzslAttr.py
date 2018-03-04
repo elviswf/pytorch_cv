@@ -18,7 +18,7 @@ from torch.autograd import Variable
 import os
 import argparse
 from data.data_loader import DataLoader
-from models.zsl_resnet import attrCNN_awa2, WARPLoss
+from models.zsl_resnet import attrCNN_awa2
 from utils.logger import progress_bar
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
@@ -27,12 +27,12 @@ from utils.logger import progress_bar
 BASE_LR = 0.01
 NUM_CLASSES = 50  # set the number of classes in your dataset
 NUM_ATTR = 85
-DATA_DIR = "/home/elvis/data/attribute/AwA/Animals_with_Attributes2/zsl/trainfullval"
+DATA_DIR = "/home/elvis/data/attribute/AwA/Animals_with_Attributes2/zsl/trainval"
 BATCH_SIZE = 128
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-MODEL_NAME = "zsl_resnet18_fc00_awa2"
+MODEL_NAME = "zsl_resnet50_fc00_awar0"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 

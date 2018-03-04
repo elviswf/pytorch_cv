@@ -99,3 +99,55 @@ with open(order_classes_file, "w") as fw:
     fw.writelines("\n".join(order_classes))
 
 
+"""
+awa2 gzsl rename directory
+"""
+gzsl_dir = "/home/elvis/data/attribute/AwA/Animals_with_Attributes2/zsl/gzsl_test/val"
+
+order_classes = []
+order_classes_file = os.path.join(origin_dir, "zsl", "order_classes.txt")
+with open(order_classes_file, "r") as fr:
+    for line in fr.readlines():
+        order_classes.append(line.strip())
+
+classes_to_rank = dict()
+for ri, ci in enumerate(order_classes):
+    classes_to_rank[ci] = ri
+
+for c_fi in os.listdir(gzsl_dir):
+    c_ri = classes_to_rank[c_fi] + 1
+    new_name = ("%03d" % c_ri) + "." + c_fi
+    os.rename(os.path.join(gzsl_dir, c_fi), os.path.join(gzsl_dir, new_name))
+
+
+awa2_attr = np.load("data/order_awa2_attr.npy") # (50, 85)
+awa2_attr_sum = np.sum(awa2_attr, axis=1)
+awa2_attr_sum.shape
+awa2_attr1 = awa2_attr.T / awa2_attr_sum
+awa2_attr1.shape
+awa2_attr1 = awa2_attr1.T
+len(np.sum(awa2_attr1, 1))
+np.save("data/order_awa2_attr1.npy", awa2_attr1)
+
+
+"""
+pairwise_distances matrix  label propagation
+"""
+import numpy as np
+from sklearn.metrics.pairwise import pairwise_distances
+w = np.load("data/order_awa2_attr.npy")
+wd = pairwise_distances(w, metric="euclidean")
+num = w.shape[0]
+ws = np.diag(np.ones(num))
+
+beta = 1.4
+for i in range(num):
+    for j in range(i):
+        ws[i, j] = np.exp(-beta * wd[i, j]**2 / (np.partition(wd[i, :], 1)[1] * np.partition(wd[j, :], 1)[1]))
+        if ws[i, j] < 0.05:
+            ws[i, j] = 0.
+        ws[j, i] = ws[i, j]
+
+ws_p = ws / np.sum(ws, axis=0)
+ws_p.diagonal()
+np.save("data/awa2_ws_14.npy", ws_p)

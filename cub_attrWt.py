@@ -52,7 +52,7 @@ BATCH_SIZE = 64
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-MODEL_NAME = "zsl_resnet50_fc003"
+MODEL_NAME = "zsl_resnet50_fc0r1"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -77,7 +77,7 @@ else:
     net = attrWeightedCNN(num_attr=312, num_classes=150)
 
 # print(torch_summarize(net))
-# print(net)
+print(net)
 if USE_GPU:
     net.cuda()
     # net = torch.nn.DataParallel(net.module, device_ids=range(torch.cuda.device_count()))
@@ -187,8 +187,8 @@ epoch1 = 10
 if start_epoch < epoch1:
     for param in net.parameters():
         param.requires_grad = False
-    # optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
     optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
+    # optim_params = list(net.fc0.parameters())
     for param in optim_params:
         param.requires_grad = True
     optimizer = optim.Adam(optim_params, weight_decay=0.005)

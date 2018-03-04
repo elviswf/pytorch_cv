@@ -28,7 +28,7 @@ from torch.autograd import Variable
 import os
 import argparse
 from data.data_loader import DataLoader
-from models.zsl_resnet import attrCNN, WARPLoss
+from models.zsl_resnet import attrCNN
 from utils.logger import progress_bar
 
 # from utils.param_count import torch_summarize, lr_scheduler

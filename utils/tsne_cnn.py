@@ -169,7 +169,6 @@ stats.kstest(MinMaxScaler().fit_transform(emb_range[:, 0]), 'uniform')
 # stats.kstest(StandardScaler().fit_transform(emb_range[:, 0]), 'norm')
 
 
-
 # from PIL import Image
 # import numpy as np
 # import matplotlib.pyplot as plt

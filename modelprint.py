@@ -7,7 +7,7 @@
 """
 import torch
 from torchvision.models import alexnet
-MODEL_NAME = "zsl_resnet50_cub_epoch15acc68"
+MODEL_NAME = "gzsl_resnet50_fc051"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -36,7 +36,6 @@ import skimage.io
 import os
 
 file_name = '/home/elvis/code/data/cub200/val/075.Green_Jay/Green_Jay_0130_65885.jpg'
-
 
 img = skimage.io.imread(file_name)
 plt.ion()

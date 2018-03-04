@@ -23,16 +23,14 @@ class AttriCNN(nn.Module):
         self.feat_size = cnn.fc.in_features
 
         self.fc0 = nn.Sequential(
-            nn.Linear(num_attr, num_attr),
-            # nn.Tanh(),
+            nn.Linear(self.feat_size, num_attr),
+            # nn.Sigmoid(),
         )
         self.fc1 = nn.Sequential(
-            # nn.Linear(self.feat_size, 32),
-            # nn.Linear(32, num_attr),
             nn.Linear(self.feat_size, num_attr),
             nn.Dropout(0.5),
-            # nn.Tanh(),
             nn.Sigmoid(),
+            # nn.Tanh(),
         )
 
         self.fc2 = nn.Linear(num_attr, num_classes, bias=False)
@@ -90,6 +88,14 @@ def attrCNN_awa2(num_attr=85, num_classes=50):
     return AttriWeightedCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
 
 
+def attrCNNg_awa2(num_attr=85, num_classes=50):
+    cnn = resnet18(pretrained=True)
+    w_attr = np.load("data/order_awa2_attr.npy")
+    # w_attr = w_attr[:num_classes, :]
+    w_attr = torch.FloatTensor(w_attr / 100.)
+    return AttriWeightedCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
+
+
 class AttriWeightedCNN(nn.Module):
     def __init__(self, cnn, w_attr, num_attr=312, num_classes=150):
         super(AttriWeightedCNN, self).__init__()
@@ -98,12 +104,13 @@ class AttriWeightedCNN(nn.Module):
 
         self.fc0 = nn.Sequential(
             nn.Linear(self.feat_size, num_attr),
+            # nn.Dropout(0.5),
             # nn.Tanh(),
         )
         self.fc1 = nn.Sequential(
             nn.Linear(self.feat_size, num_attr),
             nn.Dropout(0.5),
-            # nn.Sigmoid(),
+            nn.Sigmoid(),
             # nn.Tanh(),
             # nn.Linear(self.feat_size, 32),
             # nn.Linear(32, num_attr),
@@ -116,6 +123,7 @@ class AttriWeightedCNN(nn.Module):
         feat = self.cnn(x)
         feat = feat.view(feat.shape[0], -1)
         attr = self.fc0(feat)
+        # xt = self.fc1(attr)
         wt = self.fc1(feat)
         xt = wt.mul(attr)
         attr_y = self.fc2(xt)  # xt (batch,   square sum root
@@ -160,7 +168,7 @@ def soft_celoss(logit, prob):
 
 def soft_loss(out, targets):
     """Compute the total loss"""
-    ws = np.load("data/cub_ws_18.npy")
+    ws = np.load("data/cub_ws_14.npy")
     ws = torch.FloatTensor(ws).cuda()
     targets_data = targets.data
     targets_data = targets_data.type(torch.cuda.LongTensor)
@@ -169,6 +177,22 @@ def soft_loss(out, targets):
     soft_ce = - torch.mean(soft_celoss(out, soft_target))
 
     ce = F.cross_entropy(out, targets)
-    alpha = 0.5
+    alpha = 0.2
+    loss = alpha * ce + (1. - alpha) * soft_ce
+    return loss
+
+
+def soft_loss_awa2(out, targets):
+    """Compute the total loss"""
+    ws = np.load("data/awa2_ws_14.npy")
+    ws = torch.FloatTensor(ws).cuda()
+    targets_data = targets.data
+    targets_data = targets_data.type(torch.cuda.LongTensor)
+    soft_target = ws[targets_data]
+    soft_target = Variable(soft_target, requires_grad=False).cuda()
+    soft_ce = - torch.mean(soft_celoss(out, soft_target))
+
+    ce = F.cross_entropy(out, targets)
+    alpha = 0.
     loss = alpha * ce + (1. - alpha) * soft_ce
     return loss

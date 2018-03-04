@@ -43,12 +43,12 @@ from utils.logger import progress_bar
 BASE_LR = 0.01
 NUM_CLASSES = 200  # set the number of classes in your dataset
 NUM_ATTR = 312
-DATA_DIR = "/home/elvis/data/attribute/CUB_200_2011/zsl/trainval0"
+DATA_DIR = "/home/elvis/data/attribute/CUB_200_2011/zsl/trainval"
 BATCH_SIZE = 64
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-MODEL_NAME = "gzsl_resnet50_fc071"
+MODEL_NAME = "gzsl_resnet50_g1"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -169,39 +169,40 @@ def test(epoch, net):
         best_acc = acc
 
 
+from zeroshot.cub_test import zsl_test, gzsl_test0, gzsl_test
 epoch1 = 10
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
 if start_epoch < epoch1:
     for param in net.parameters():
         param.requires_grad = False
-    # optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
     optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
+    # optim_params = list(net.fc0.parameters())
     for param in optim_params:
         param.requires_grad = True
     optimizer = optim.Adam(optim_params, weight_decay=0.005)
     for epoch in range(start_epoch, epoch1):
         train(epoch, net, optimizer)
         test(epoch, net)
+        gzsl_test0(epoch, net, optimizer)
     start_epoch = epoch1
 
 fc_params = list(map(id, net.fc2.parameters()))
 base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
-
 for param in base_params:
     param.requires_grad = True
 
 optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.005)
-from zeroshot.cub_test import zsl_test, gzsl_test, gzsl_test0
-import copy
 
+import copy
 for epoch in range(start_epoch, 100):
     train(epoch, net, optimizer)
     test(epoch, net)
+    gzsl_test0(epoch, net, optimizer)
     if epoch > 10:
         net1 = copy.deepcopy(net)
         zsl_test(epoch, net1, optimizer)
         del net1
-        # net2 = copy.deepcopy(net)
-        # gzsl_test(epoch, net2, optimizer)
-        # del net2
+    # net2 = copy.deepcopy(net)
+    # gzsl_test(epoch, net2, optimizer)
+    # del net2
 log.close()

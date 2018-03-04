@@ -24,6 +24,9 @@ with open(test_file, "r") as fr:
     for line in fr.readlines():
         test_classes.append(line.strip())
 
+len(test_classes)
+
+
 img_dir = os.path.join(origin_dir, "images")
 zsl_train_dir = os.path.join(origin_dir, "zsl", "zsl_train")
 zsl_test_dir = os.path.join(origin_dir, "zsl", "zsl_test")
@@ -103,7 +106,6 @@ classes_to_rank = dict()
 for ri, ci in enumerate(order_classes):
     classes_to_rank[ci] = ri
 
-
 for c_fi in os.listdir(gzsl_dir):
     c_ri = classes_to_rank[c_fi] + 1
     new_name = ("%03d" % c_ri) + "." + c_fi.split(".")[1]
@@ -111,13 +113,16 @@ for c_fi in os.listdir(gzsl_dir):
 
 
 cub_attr = np.load("data/order_cub_attr.npy")
-cub_attr.shape
-cub_attr_sum = np.sum(cub_attr, axis=0)
-cub_attr1 = cub_attr / cub_attr_sum
+cub_attr_sum = np.sum(cub_attr, axis=1)
+cub_attr_sum.shape
+cub_attr1 = cub_attr.T / cub_attr_sum
 cub_attr1.shape
-cub_attr[10, 21] / cub_attr_sum[21]
-cub_attr1[10, 21]
+cub_attr1 = cub_attr1.T
+len(np.sum(cub_attr1, 1))
 np.save("data/order_cub_attr1.npy", cub_attr1)
+cub_attr1 = np.load("data/order_cub_attr1.npy")
+cub_attr1 = cub_attr1 * 10
+len(np.sum(cub_attr1, 1))
 
 """
 pairwise_distances matrix  label propagation
@@ -129,7 +134,7 @@ wd = pairwise_distances(w, metric="euclidean")
 num = w.shape[0]
 ws = np.diag(np.ones(num))
 
-beta = 1.8
+beta = 1.4
 for i in range(num):
     for j in range(i):
         ws[i, j] = np.exp(-beta * wd[i, j]**2 / (np.partition(wd[i, :], 1)[1] * np.partition(wd[j, :], 1)[1]))
@@ -139,4 +144,4 @@ for i in range(num):
 
 ws_p = ws / np.sum(ws, axis=0)
 ws_p.diagonal()
-np.save("data/cub_ws_18.npy", ws_p)
+np.save("data/cub_ws_14.npy", ws_p)
