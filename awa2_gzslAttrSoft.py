@@ -30,9 +30,8 @@ NUM_ATTR = 85
 DATA_DIR = "/home/elvis/data/attribute/AwA/Animals_with_Attributes2/zsl/trainval"
 BATCH_SIZE = 128
 IMAGE_SIZE = 224
-# MODEL_NAME = "zsl_resnet18_fc1"
-# MODEL_NAME = "zsl_resnet18_fc1_end"
-MODEL_NAME = "zsl_resnet50_awa2_gs0"
+gamma = 2.
+MODEL_NAME = "gzsl_awa2_gs0_g2"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -150,8 +149,7 @@ def test(epoch, net):
         best_acc = acc
 
 
-# import copy
-epoch1 = 10
+epoch1 = 2
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
 if start_epoch < epoch1:
     for param in net.parameters():
@@ -164,7 +162,7 @@ if start_epoch < epoch1:
     for epoch in range(start_epoch, epoch1):
         train(epoch, net, optimizer)
         # test(epoch, net)
-        gzsl_test0(epoch, net, optimizer)
+        gzsl_test0(epoch, net, optimizer, gamma=gamma)
     start_epoch = epoch1
 
 fc_params = list(map(id, net.fc2.parameters()))
@@ -178,7 +176,7 @@ optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.005)
 for epoch in range(start_epoch, 100):
     train(epoch, net, optimizer)
     # test(epoch, net)
-    gzsl_test0(epoch, net, optimizer)
+    gzsl_test0(epoch, net, optimizer, gamma=gamma)
     # if epoch > 10:
     #     net1 = copy.deepcopy(net)
     #     zsl_test(epoch, net1, optimizer)

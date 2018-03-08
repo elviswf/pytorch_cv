@@ -20,6 +20,7 @@ import argparse
 from data.data_loader import DataLoader
 from models.zsl_resnet import attrCNN_awa2
 from utils.logger import progress_bar
+from zeroshot.awa2_test import zsl_test, gzsl_test1
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
 
@@ -30,9 +31,9 @@ NUM_ATTR = 85
 DATA_DIR = "/home/elvis/data/attribute/AwA/Animals_with_Attributes2/zsl/trainval"
 BATCH_SIZE = 128
 IMAGE_SIZE = 224
-# MODEL_NAME = "zsl_resnet18_fc1"
-# MODEL_NAME = "zsl_resnet18_fc1_end"
-MODEL_NAME = "zsl_resnet50_fc00_awar0"
+gamma = 20.
+confidence = 0.9
+MODEL_NAME = "gzsl_awa2_g_c9"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -139,7 +140,7 @@ def test(epoch, net):
         best_acc = acc
 
 
-epoch1 = 6
+epoch1 = 2
 if start_epoch < epoch1:
     for param in net.parameters():
         param.requires_grad = False
@@ -153,7 +154,9 @@ if start_epoch < epoch1:
 
     for epoch in range(start_epoch, epoch1):
         train(epoch, net, optimizer)
-        test(epoch, net)
+        # test(epoch, net)
+        gzsl_test1(epoch, net, optimizer, confidence)
+        # gzsl_test0(epoch, net, optimizer, gamma)
     start_epoch = epoch1
 
 fc_params = list(map(id, net.fc2.parameters()))
@@ -164,17 +167,8 @@ for param in base_params:
 
 optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.005)
 
-from zeroshot.awa2_test import zsl_test
-import copy
-
 for epoch in range(start_epoch, 100):
     train(epoch, net, optimizer)
-    test(epoch, net)
-    if epoch > 6:
-        net1 = copy.deepcopy(net)
-        zsl_test(epoch, net1, optimizer)
-        del net1
-        # net2 = copy.deepcopy(net)
-        # gzsl_test(epoch, net2, optimizer)
-        # del net2
+    # test(epoch, net)
+    gzsl_test1(epoch, net, optimizer, confidence)
 log.close()

@@ -71,7 +71,147 @@ def zsl_test(epoch, net, optimizer):
         torch.save(state, "./checkpoints/" + MODEL_SAVE_FILE)
 
 
-def gzsl_test0(epoch, net, optimizer):
+def gzsl_test0(epoch, net, optimizer, gamma=2.):
+    NUM_CLASSES = 50  # set the number of classes in your dataset
+    num_seen_classes = 40
+    NUM_ATTR = 85
+    DATA_DIR = "/home/elvis/data/attribute/AwA/Animals_with_Attributes2/zsl/gzsl_test"
+    BATCH_SIZE = 32
+    IMAGE_SIZE = 224
+    best_h = 55
+    USE_GPU = torch.cuda.is_available()
+    data_loader = DataLoader(data_dir=DATA_DIR, image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
+    # train_loader = data_loader.load_data(data_set='train')
+    test_loader = data_loader.load_data(data_set='val')
+    criterion = nn.CrossEntropyLoss()
+
+    net.eval()
+    test_loss, correct_seen, correct_unseen, total_seen, total_unseen, total, loss = 0, 0, 0, 0, 0, 0, 0
+    for batch_idx, (inputs, targets) in enumerate(test_loader):
+        if USE_GPU:
+            inputs, targets = inputs.cuda(), targets.cuda()
+        inputs, targets = Variable(inputs, volatile=True), Variable(targets)
+        out, attr = net(inputs)
+        loss = criterion(out, targets)
+
+        test_loss = loss.data[0]
+        logit = out.data
+        seen_prob, seen_class = torch.max(logit[:, :num_seen_classes], 1)
+        unseen_prob, unseen_class = torch.max(logit[:, num_seen_classes:], 1)
+        predicted = seen_class
+        for i, spi in enumerate(seen_prob):
+            if unseen_prob[i] > -0.1:
+                predicted[i] = unseen_class[i] + num_seen_classes
+
+        _, predicted = torch.max(out.data, 1)
+        total += targets.size(0)
+        correct_list = predicted.eq(targets.data).cpu()
+        target_list = targets.data.cpu()
+        for i, targeti in enumerate(target_list):
+            if targeti < num_seen_classes:
+                correct_seen += correct_list[i]
+                total_seen += 1
+            else:
+                correct_unseen += correct_list[i]
+                total_unseen += 1
+
+        acc_seen = 100. * correct_seen / total_seen
+        if total_unseen > 0:
+            acc_unseen = 100. * correct_unseen / total_unseen
+        else:
+            acc_unseen = 0.
+        progress_bar(batch_idx, len(test_loader), 'Loss: %.3f | acc_seen: %.3f%% (%d/%d) | acc_unseen: %.3f%% (%d/%d)'
+                     % (test_loss / (batch_idx + 1), acc_seen, correct_seen, total_seen,
+                        acc_unseen, correct_unseen, total_unseen))
+    acc_seen = 100. * correct_seen / total_seen
+    acc_unseen = 100. * correct_unseen / total_unseen
+    h = 2./(1./acc_seen + 1./acc_unseen)
+    print("acc_seen: %.3f%% (%d/%d) | acc_unseen: %.3f%% (%d/%d) | H: %.3f%%" %
+          (acc_seen, correct_seen, total_seen, acc_unseen, correct_unseen, total_unseen, h))
+    if h > best_h:
+        MODEL_SAVE_FILE = "gzsl_awa2_epoch%dacc%d.pth" % (epoch, int(h))
+        print(MODEL_SAVE_FILE)
+        state = {
+            'net': net,
+            'acc': h,
+            'epoch': epoch,
+            'optimizer': optimizer
+        }
+        torch.save(state, "./checkpoints/" + MODEL_SAVE_FILE)
+
+
+def gzsl_test1(epoch, net, optimizer, confidence=0.5):
+    NUM_CLASSES = 50  # set the number of classes in your dataset
+    num_seen_classes = 40
+    NUM_ATTR = 85
+    DATA_DIR = "/home/elvis/data/attribute/AwA/Animals_with_Attributes2/zsl/gzsl_test"
+    BATCH_SIZE = 32
+    IMAGE_SIZE = 224
+    best_h = 55
+    USE_GPU = torch.cuda.is_available()
+    data_loader = DataLoader(data_dir=DATA_DIR, image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
+    # train_loader = data_loader.load_data(data_set='train')
+    test_loader = data_loader.load_data(data_set='val')
+    criterion = nn.CrossEntropyLoss()
+
+    net.eval()
+    test_loss, correct_seen, correct_unseen, total_seen, total_unseen, total, loss = 0, 0, 0, 0, 0, 0, 0
+    for batch_idx, (inputs, targets) in enumerate(test_loader):
+        if USE_GPU:
+            inputs, targets = inputs.cuda(), targets.cuda()
+        inputs, targets = Variable(inputs, volatile=True), Variable(targets)
+        out, attr = net(inputs)
+        loss = criterion(out, targets)
+
+        test_loss = loss.data[0]
+        logit = out.data
+        seen_logit = torch.nn.functional.softmax(Variable(logit[:, :num_seen_classes]), dim=1).data
+        unseen_logit = torch.nn.functional.softmax(Variable(logit[:, num_seen_classes:]), dim=1).data
+        seen_prob, seen_class = torch.max(seen_logit, 1)
+        unseen_prob, unseen_class = torch.max(unseen_logit, 1)
+        predicted = seen_class
+        for i, spi in enumerate(seen_prob):
+            if seen_prob[i] < unseen_prob[i] * gamma:
+                predicted[i] = unseen_class[i] + num_seen_classes
+
+        _, predicted = torch.max(out.data, 1)
+        total += targets.size(0)
+        correct_list = predicted.eq(targets.data).cpu()
+        target_list = targets.data.cpu()
+        for i, targeti in enumerate(target_list):
+            if targeti < num_seen_classes:
+                correct_seen += correct_list[i]
+                total_seen += 1
+            else:
+                correct_unseen += correct_list[i]
+                total_unseen += 1
+
+        acc_seen = 100. * correct_seen / total_seen
+        if total_unseen > 0:
+            acc_unseen = 100. * correct_unseen / total_unseen
+        else:
+            acc_unseen = 0.
+        progress_bar(batch_idx, len(test_loader), 'Loss: %.3f | acc_seen: %.3f%% (%d/%d) | acc_unseen: %.3f%% (%d/%d)'
+                     % (test_loss / (batch_idx + 1), acc_seen, correct_seen, total_seen,
+                        acc_unseen, correct_unseen, total_unseen))
+    acc_seen = 100. * correct_seen / total_seen
+    acc_unseen = 100. * correct_unseen / total_unseen
+    h = 2./(1./acc_seen + 1./acc_unseen)
+    print("acc_seen: %.3f%% (%d/%d) | acc_unseen: %.3f%% (%d/%d) | H: %.3f%%" %
+          (acc_seen, correct_seen, total_seen, acc_unseen, correct_unseen, total_unseen, h))
+    if h > best_h:
+        MODEL_SAVE_FILE = "gzsl_awa2_epoch%dacc%d.pth" % (epoch, int(h))
+        print(MODEL_SAVE_FILE)
+        state = {
+            'net': net,
+            'acc': h,
+            'epoch': epoch,
+            'optimizer': optimizer
+        }
+        torch.save(state, "./checkpoints/" + MODEL_SAVE_FILE)
+
+
+def gzsl_test(epoch, net, optimizer):
     NUM_CLASSES = 50  # set the number of classes in your dataset
     NUM_ATTR = 85
     DATA_DIR = "/home/elvis/data/attribute/AwA/Animals_with_Attributes2/zsl/gzsl_test"
@@ -126,7 +266,7 @@ def gzsl_test0(epoch, net, optimizer):
     print("acc_seen: %.3f%% (%d/%d) | acc_unseen: %.3f%% (%d/%d) | H: %.3f%%" %
           (acc_seen, correct_seen, total_seen, acc_unseen, correct_unseen, total_unseen, h))
     if h > best_h:
-        MODEL_SAVE_FILE = "gzsl_resnet50_cub_epoch%dacc%d.pth" % (epoch, int(h))
+        MODEL_SAVE_FILE = "gzsl_awa2_epoch%dacc%d.pth" % (epoch, int(h))
         print(MODEL_SAVE_FILE)
         state = {
             'net': net,

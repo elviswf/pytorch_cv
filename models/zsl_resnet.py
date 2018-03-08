@@ -13,6 +13,8 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torchvision.models import resnet18, resnet50, resnet101
+
+
 # from torch.nn.init import kaiming_normal, orthogonal
 
 

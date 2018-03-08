@@ -134,7 +134,7 @@ wd = pairwise_distances(w, metric="euclidean")
 num = w.shape[0]
 ws = np.diag(np.ones(num))
 
-beta = 1.4
+beta = 1.
 for i in range(num):
     for j in range(i):
         ws[i, j] = np.exp(-beta * wd[i, j]**2 / (np.partition(wd[i, :], 1)[1] * np.partition(wd[j, :], 1)[1]))
@@ -144,4 +144,4 @@ for i in range(num):
 
 ws_p = ws / np.sum(ws, axis=0)
 ws_p.diagonal()
-np.save("data/cub_ws_14.npy", ws_p)
+np.save("data/cub_ws_1.npy", ws_p)

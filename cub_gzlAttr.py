@@ -34,7 +34,8 @@ import os
 import argparse
 from data.data_loader import DataLoader
 from models.zsl_resnet import attrCNN, attrWeightedCNN, attrWCNNg
-from models.focalLoss import FocalLoss
+# from models.focalLoss import FocalLoss
+from zeroshot.cub_test import zsl_test, gzsl_test0, gzsl_test
 from utils.logger import progress_bar
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
@@ -48,7 +49,8 @@ BATCH_SIZE = 64
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-MODEL_NAME = "gzsl_resnet50_g1"
+gamma = 1.7
+MODEL_NAME = "gzsl_resnet50_g_g17"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -169,7 +171,6 @@ def test(epoch, net):
         best_acc = acc
 
 
-from zeroshot.cub_test import zsl_test, gzsl_test0, gzsl_test
 epoch1 = 10
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
 if start_epoch < epoch1:
@@ -183,7 +184,7 @@ if start_epoch < epoch1:
     for epoch in range(start_epoch, epoch1):
         train(epoch, net, optimizer)
         test(epoch, net)
-        gzsl_test0(epoch, net, optimizer)
+        gzsl_test0(epoch, net, optimizer, gamma)
     start_epoch = epoch1
 
 fc_params = list(map(id, net.fc2.parameters()))
@@ -197,11 +198,11 @@ import copy
 for epoch in range(start_epoch, 100):
     train(epoch, net, optimizer)
     test(epoch, net)
-    gzsl_test0(epoch, net, optimizer)
-    if epoch > 10:
-        net1 = copy.deepcopy(net)
-        zsl_test(epoch, net1, optimizer)
-        del net1
+    gzsl_test0(epoch, net, optimizer, gamma)
+    # if epoch > 10:
+    #     net1 = copy.deepcopy(net)
+    #     zsl_test(epoch, net1, optimizer)
+    #     del net1
     # net2 = copy.deepcopy(net)
     # gzsl_test(epoch, net2, optimizer)
     # del net2

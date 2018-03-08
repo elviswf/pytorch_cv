@@ -11,9 +11,8 @@ python visualisation.py --img imgpath --target target_class --model model_path -
 import cv2
 import numpy as np
 import torch
-from torchvision import models, transforms
 from torch.autograd import Variable
-import torch
+from torchvision import models, transforms
 import torch.nn as nn
 import pickle
 import os
@@ -23,17 +22,21 @@ from matplotlib import cm
 import PIL
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--img', default="/home/elvis/data/attribute/CUB_200_2011/img_origin/001.Black_footed_Albatross/Black_Footed_Albatross_0002_55.jpg",
+parser.add_argument('--img', default="/home/elvis/code/data/cub200/val/075.Green_Jay/Green_Jay_0130_65885.jpg",
                     help='Path to the image to be found activations on')
-parser.add_argument('--target', default=None,  # 0 int
+parser.add_argument('--target', default=60,  # 0 int
                     help='The target class to find activations on')
-parser.add_argument('--model', default="/home/elvis/code/pytorch/pytorch_cv/checkpoints/zsl_resnet50_cub_epoch15acc69.pth",
+parser.add_argument('--model', default="/home/elvis/code/pytorch/pytorch_cv/checkpoints/gzsl_resnet50_gs2.pth",
                     help='Path to the pretrained model')
-parser.add_argument('--export', default="Albatross55_cam.png",
+parser.add_argument('--export', default="Green_Jay_0130_cam.png",
                     help='Path to the pretrained model')
 
 opt = parser.parse_args()
 print(opt)
+opt_img = "/home/elvis/code/data/cub200/val/075.Green_Jay/Green_Jay_0130_65885.jpg"
+opt_target = 60
+opt_model = "/home/elvis/code/pytorch/pytorch_cv/checkpoints/gzsl_resnet50_gs2.pth"
+opt_export = "Green_Jay_0130_cam.png"
 
 
 class CamExtractor:
@@ -174,40 +177,45 @@ def preprocess_image(cv2im, resize_im=True):
 
 
 def load_model():
-    checkpoint = torch.load(
-        opt.model, map_location=lambda storage, loc: storage)
-    file_name_to_export = opt.export
-    target_class = int(opt.target)
-
-    model = models.resnet50(pretrained=True)
-    num_ftrs = model.fc.in_features
-    model.fc = nn.Linear(num_ftrs, 2)
-
-    use_gpu = torch.cuda.is_available()
-    use_gpu = False
-
-    if use_gpu:
-        model = model.cuda()
-
-    model.load_state_dict(checkpoint)
-    model.eval()
-
-    return model
+    # checkpoint = torch.load(
+    #     opt_model, map_location=lambda storage, loc: storage)
+    # file_name_to_export = opt_export
+    # target_class = int(opt_target)
+    #
+    # model = models.resnet50(pretrained=True)
+    # num_ftrs = model.fc.in_features
+    # model.fc = nn.Linear(num_ftrs, 2)
+    #
+    # use_gpu = torch.cuda.is_available()
+    # use_gpu = False
+    #
+    # if use_gpu:
+    #     model = model.cuda()
+    #
+    # model.load_state_dict(checkpoint)
+    print(opt_model)
+    ckpt_path = "/home/elvis/code/pytorch/pytorch_cv/checkpoints/gzsl_resnet50_gs2.pth"
+    checkpoint = torch.load(ckpt_path)
+    net = checkpoint["net"]
+    net.eval()
+    return net
 
 
 if __name__ == '__main__':
-    image_path = opt.img
+    image_path = opt_img
     # Open CV preporcessing
     image = cv2.imread(image_path)
     image_prep = preprocess_image(image)
     # Load the model
     model = load_model()
     # Grad cam
-    grad_cam = GradCam(model, target_layer='layer4')
+    grad_cam = GradCam(model, target_layer='4')
     # Generate cam mask
-    target_class = opt.target
+    target_class = opt_target
     cam = grad_cam.generate_cam(image_prep, target_class)
     # Save mask
-    out_name = opt.export
+    out_name = opt_export
     save_class_activation_on_image(image, cam, out_name)
     print('Grad cam completed')
+
+
