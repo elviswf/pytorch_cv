@@ -33,28 +33,28 @@ from torch.autograd import Variable
 import os
 import argparse
 from data.data_loader import DataLoader
-from models.zsl_resnet import attrWeightedCNN, attrWCNNg
+from models.zsl_resnet import attrWCNNg_sun
 # from models.focalLoss import FocalLoss
-from zeroshot.cub_test import zsl_test, gzsl_test0, gzsl_test
+from zeroshot.sun_test import zsl_test, gzsl_test0, gzsl_test
 from utils.logger import progress_bar
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
 
 # Learning rate parameters
 BASE_LR = 0.01
-NUM_CLASSES = 200  # set the number of classes in your dataset
-NUM_ATTR = 312
-DATA_DIR = "/home/elvis/data/attribute/CUB_200_2011/zsl/trainval"
-BATCH_SIZE = 64
+NUM_CLASSES = 717  # set the number of classes in your dataset
+NUM_ATTR = 102
+DATA_DIR = "/home/elvis/data/attribute/SUN/zsl/trainval"
+BATCH_SIZE = 32
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-gamma = 1.7
-MODEL_NAME = "gzsl_resnet50_g_g17"
+gamma = 1.4
+MODEL_NAME = "sun_gzsl_resnet50_g_g14"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
-parser = argparse.ArgumentParser(description='PyTorch zsl_resnet18_attr1 Training')
+parser = argparse.ArgumentParser(description='PyTorch sun_gzsl_resnet50_g_g17 Training')
 parser.add_argument('--lr', default=BASE_LR, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', default=False, help='resume from checkpoint')
 parser.add_argument('--data', default=DATA_DIR, type=str, help='file path of the dataset')
@@ -72,7 +72,7 @@ if args.resume:
     optimizer = checkpoint["optimizer"]
 else:
     print("==> Building model...")
-    net = attrWCNNg(num_attr=312, num_classes=NUM_CLASSES)
+    net = attrWCNNg_sun(num_attr=NUM_ATTR, num_classes=NUM_CLASSES)
 
 # print(torch_summarize(net))
 # print(net)
@@ -81,7 +81,7 @@ if USE_GPU:
     # net = torch.nn.DataParallel(net.module, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 
-log = open("./log/" + MODEL_NAME + '_cub.txt', 'a')
+log = open("./log/" + MODEL_NAME + '_sun.txt', 'a')
 print("==> Preparing data...")
 data_loader = DataLoader(data_dir=args.data, image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
 inputs, classes = next(iter(data_loader.load_data()))
@@ -171,7 +171,7 @@ def test(epoch, net):
         best_acc = acc
 
 
-epoch1 = 10
+epoch1 = 3
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
 if start_epoch < epoch1:
     for param in net.parameters():
@@ -193,17 +193,13 @@ for param in base_params:
     param.requires_grad = True
 
 optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.005)
-
 import copy
 for epoch in range(start_epoch, 100):
     train(epoch, net, optimizer)
     test(epoch, net)
     gzsl_test0(epoch, net, optimizer, gamma)
-    # if epoch > 10:
-    #     net1 = copy.deepcopy(net)
-    #     zsl_test(epoch, net1, optimizer)
-    #     del net1
-    # net2 = copy.deepcopy(net)
-    # gzsl_test(epoch, net2, optimizer)
-    # del net2
+    net1 = copy.deepcopy(net)
+    zsl_test(epoch, net1, optimizer)
+    del net1
+
 log.close()

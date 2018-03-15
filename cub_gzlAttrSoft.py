@@ -34,7 +34,7 @@ from torch.autograd import Variable
 import os
 import argparse
 from data.data_loader import DataLoader
-from models.zsl_resnet import attrCNN, attrWeightedCNN, attrWCNNg, soft_loss
+from models.zsl_resnet import attrWeightedCNN, attrWCNNg, soft_loss
 from zeroshot.cub_test import zsl_test, gzsl_test0, gzsl_test
 from utils.logger import progress_bar
 import copy
@@ -52,8 +52,8 @@ BATCH_SIZE = 64
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-gamma = 1.3
-MODEL_NAME = "gzsl_resnet50_gs2_g13"
+gamma = 1.5
+MODEL_NAME = "gzsl_resnet50_gs5_g15"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -84,7 +84,9 @@ if USE_GPU:
     # net = torch.nn.DataParallel(net.module, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 
-log = open("./log/" + MODEL_NAME + '_cub.txt', 'a')
+
+log = open("./log/" + MODEL_NAME + '_cub_1.txt', 'a')
+# epoch acc_train acc_test loss gzsl zsl
 print("==> Preparing data...")
 data_loader = DataLoader(data_dir=args.data, image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
 inputs, classes = next(iter(data_loader.load_data()))
@@ -153,8 +155,7 @@ def test(epoch, net):
         progress_bar(batch_idx, len(test_loader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                      % (test_loss / (batch_idx + 1), acc, correct, total))
 
-    log.write(str(correct / total) + ' ' + str(test_loss) + '\n')
-    log.flush()
+    log.write(str(correct / total) + ' ' + str(test_loss) + ' ')
 
     acc = 100. * correct / total
     if epoch > 9 and acc > best_acc:
@@ -172,7 +173,7 @@ def test(epoch, net):
 
 
 # import copy
-epoch1 = 6
+epoch1 = 0
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
 if start_epoch < epoch1:
     for param in net.parameters():
@@ -184,11 +185,13 @@ if start_epoch < epoch1:
     optimizer = optim.Adam(optim_params, weight_decay=0.005)
     for epoch in range(start_epoch, epoch1):
         train(epoch, net, optimizer)
-        # test(epoch, net)
-        gzsl_test0(epoch, net, optimizer, gamma=gamma)
-        # net1 = copy.deepcopy(net)
-        # gzsl_test(epoch, net1, optimizer)
-        # del net1
+        test(epoch, net)
+        gzsl_test0(epoch, net, optimizer, log, gamma=gamma)
+        net1 = copy.deepcopy(net)
+        zsl_test(epoch, net1, optimizer, log)
+        del net1
+        log.write("\n")
+        log.flush()
     start_epoch = epoch1
 
 fc_params = list(map(id, net.fc2.parameters()))
@@ -201,14 +204,13 @@ optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.005)
 
 for epoch in range(start_epoch, 100):
     train(epoch, net, optimizer)
-    # test(epoch, net)
-    gzsl_test0(epoch, net, optimizer, gamma=gamma)
-    # net1 = copy.deepcopy(net)
-    # gzsl_test(epoch, net1, optimizer)
-    # del net1
-    #     net2 = copy.deepcopy(net)
-    #     gzsl_test(epoch, net2, optimizer)
-    #     del net2
+    test(epoch, net)
+    gzsl_test0(epoch, net, optimizer, log, gamma=gamma)
+    net1 = copy.deepcopy(net)
+    zsl_test(epoch, net1, optimizer, log)
+    del net1
+    log.write("\n")
+    log.flush()
 log.close()
 
 

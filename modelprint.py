@@ -7,7 +7,7 @@
 """
 import torch
 
-MODEL_NAME = "gzsl_resnet50_gs2"
+MODEL_NAME = "gzsl_resnet50_g_g17"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -32,10 +32,9 @@ fc0_b = fc1[0].bias.data
 import matplotlib.pyplot as plt
 # matplotlib.use("Agg")
 import skimage.io
-import os
 
-file_name = '/home/elvis/code/data/cub200/val/075.Green_Jay/Green_Jay_0130_65885.jpg'
-
+# file_name = '/home/elvis/data/attribute/CUB_200_2011/zsl/gzsl_test/val/061.Green_Jay/Green_Jay_0090_65895.jpg'
+file_name = "/home/elvis/data/attribute/CUB_200_2011/zsl/gzsl_test/val/200.Common_Yellowthroat/Common_Yellowthroat_0003_190521.jpg"
 img = skimage.io.imread(file_name)
 plt.ion()
 plt.imshow(img)
@@ -54,111 +53,140 @@ centre_crop = transforms.Compose([
 from torch.autograd import Variable
 from torch.nn import functional as F
 
+net._modules.keys()
+fc1_layer = net._modules.get('fc1')
+fc2_layer = net._modules.get('fc2')
+wt_list = []
+xt_list = []
+
+
+def fc1_fun(m, i, o):
+    wt_list.append(o.data.cpu().numpy())
+    print(
+        'm:', type(m),
+        '\ni:', type(i),
+            '\n   len:', len(i),
+            '\n   type:', type(i[0]),
+            '\n   data size:', i[0].data.size(),
+            '\n   data type:', i[0].data.type(),
+        '\no:', type(o),
+            '\n   data size:', o.data.size(),
+            '\n   data type:', o.data.type(),
+    )
+
+
+def fc2_fun(m, i, o):
+    xt_list.append(i[0].data.cpu().numpy())
+
+
+fc1_h = fc1_layer.register_forward_hook(fc1_fun)
+fc2_h = fc2_layer.register_forward_hook(fc2_fun)
+# fc1_h.remove()
+# fc2_h.remove()
+
 # get top 5 probabilities
+import numpy as np
 x = Variable(centre_crop(img).unsqueeze(0), volatile=True).cuda()
 logit, attr = net(x)
+len(wt_list)
+np.save("data/output/wt_g17.npy", wt_list)
+np.save("data/output/xt_g17.npy", xt_list)
 
 x_attr = attr.cpu().data.numpy()
+np.save("data/output/x_attr_g17.npy", x_attr)
 
-import numpy as np
-np.save("x_attr_gs2.npy", x_attr)
-
-x_attr
+x_attr.shape
 
 h_x = F.softmax(logit).data.squeeze()
 probs, idx = h_x.sort(0, True)
-
-import torch
-from torch import nn
-from torchvision.models import resnet50
+idx[:9]
 
 
-class ResNet50(nn.Module):
-    def __init__(self, ):
-        super(ResNet50, self).__init__()
-
-        model = resnet50(pretrained=True)
-        size = model.fc.weight.size()
-        model.fc = nn.Linear(size[1], size[0], bias=False)
-        self.model = model
-
-    def forward(self, x):
-        return self.model(x)
-
-
-MODEL_SAVE_FILE = "model_best.pth.tar"
-print("==> Resuming from checkpoint...")
-checkpoint = torch.load("./checkpoints/" + MODEL_SAVE_FILE)
-net = torch.nn.DataParallel(ResNet50()).cuda()
-net.load_state_dict(checkpoint['state_dict'])
-
-w = net.module.model.fc.weight
-w_np = w.data.cpu().numpy()
-w_np.shape
-np.save("data/w_np.npy", w_np)
-
-import numpy as np
-from sklearn.manifold import TSNE
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.patheffects as PathEffects
-
-w_np = np.load("data/w_np.npy")
-sns.set_style('darkgrid')
-sns.set_palette('muted')
-sns.set_context("notebook", font_scale=1, rc={"lines.linewidth": 2.5})
-RS = 20180305
-
-
-def tsne_w(Xw):
-    model = TSNE(n_components=2, random_state=RS)
-    np.set_printoptions(suppress=True)
-    emb = model.fit_transform(Xw)
-    return emb
-
-
-# Scale and visualize the embedding vectors
-def scatter(x, colors, txts=None):
-    # We choose a color palette with seaborn.
-    palette = np.array(sns.color_palette("hls", colors.size))
-
-    # We create a scatter plot.
-    plt.figure(figsize=(16, 16))
-    ax = plt.subplot(aspect='equal')
-    ax.scatter(x[:, 0], x[:, 1], lw=0, s=40, c=palette[colors.astype(np.int)])
-    plt.xlim(-25, 25)
-    plt.ylim(-25, 25)
-    ax.axis('off')
-    ax.axis('tight')
-    plt.title("1000*2048 -> 1000*2 embedding")
-
-    for i in range(colors.size):
-        # Position of each label.
-        # if (i % 8 == 0):
-        xtext, ytext = np.median(x[colors == i, :], axis=0)
-        if len(txts[i]) > 10:
-            txts[i] = txts[i][:8]
-        txt = ax.text(xtext, ytext, txts[i], fontsize=6)
-    txt.set_path_effects([
-        PathEffects.Stroke(linewidth=3, foreground="w"),
-        PathEffects.Normal()])
-
-    plt.savefig("data/embedding/weight/resnet50_fc_no_bias.pdf")
-    return
-
-
-nclass = 1000
-yc = np.array(list(range(nclass)))
+"""
+test images
+"""
+from torchvision import datasets
 import os
-file_name = 'data/synset_words.txt'
-if not os.access(file_name, os.W_OK):
-    synset_URL = 'https://github.com/szagoruyko/functional-zoo/raw/master/synset_words.txt'
-    os.system('wget ' + synset_URL + ' -P data/')
+root_dir = "/home/elvis/data/attribute/CUB_200_2011/zsl/gzsl_test/val"
+BATCH_SIZE = 32
 
-classes = list()
-with open(file_name) as class_file:
-    for line in class_file:
-        classes.append(line.strip().split(' ', 1)[1].split(', ', 1)[0])
 
-emb_w = tsne_w(w_np)
-scatter(emb_w, colors=yc, txts=classes)
+class DataLoader(object):
+    def __init__(self, data_dir, image_size, batch_size=BATCH_SIZE):
+        """
+        this class is the normalize data loader of PyTorch.
+        The target image size and transforms can edit here.
+        """
+        self.base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.data_dir = data_dir
+        self.batch_size = batch_size
+        self.image_size = image_size
+
+        self.normalize_mean = [0.485, 0.456, 0.406]
+        self.normalize_std = [0.229, 0.224, 0.225]
+        self.data_transforms = {
+            'train': transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(self.image_size),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                # torchsample.transforms.Rotate(10),
+                transforms.Normalize(self.normalize_mean, self.normalize_std)
+            ]),
+            'val': transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(self.image_size),
+                transforms.ToTensor(),
+                transforms.Normalize(self.normalize_mean, self.normalize_std)
+            ]),
+        }
+
+        self._init_data_sets()
+
+    def _init_data_sets(self):
+        self.val_set = datasets.ImageFolder(root_dir, self.data_transforms['val'])
+        self.val_loaders = torch.utils.data.DataLoader(self.val_set, batch_size=self.batch_size,
+                                                       shuffle=False, num_workers=4)
+        self.data_sizes = len(self.val_set)
+        self.data_classes = self.val_set.classes
+
+    def load_data(self, data_set='train'):
+        return self.data_loaders[data_set]
+
+    # def show_image(self, tensor, title=None):
+    #     inp = tensor.numpy().transpose((1, 2, 0))
+    #     # put it back as it solved before in transforms
+    #     inp = self.normalize_std * inp + self.normalize_mean
+    #     plt.imshow(inp)
+    #     if title is not None:
+    #         ptitle = "\n".join(textwrap.wrap(",".join(title), 80))
+    #         plt.title(ptitle)
+    #     plt.show()
+    #     # plt.savefig(time.strftime("imgs/%H_%M_%S.jpg", time.localtime()))
+    #
+    # def make_predict_inputs(self, image_file):
+    #     """
+    #     this will make a image to PyTorch inputs, as the same with training images.
+    #     this will return a tensor, default not using CUDA.
+    #     :param image_file:
+    #     :return:
+    #     """
+    #     image = Image.open(image_file)
+    #     image_tensor = self.data_transforms['val'](image).float()
+    #     image_tensor.unsqueeze_(0)
+    #     return Variable(image_tensor)
+    #
+    # def un_normalize(self, tensor):
+    #     """
+    #     Args:
+    #         tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
+    #     Returns:
+    #         Tensor: Normalized image.
+    #     """
+    #     for t, m, s in zip(tensor, self.normalize_mean, self.normalize_std):
+    #         t.mul_(s).add_(m)
+    #         # The normalize code -> t.sub_(m).div_(s)
+    #     return tensor
+
+
+

@@ -1,42 +1,37 @@
 # -*- coding: utf-8 -*-
 """
-@Time    : 2017/12/4 15:42
+@Time    : 2018/2/5 15:48
 @Author  : Elvis
 
- cub.py
-watch --color -n1 gpustat -cpu
-CUDA_VISIBLE_DEVICES=4 python cub_attr1.py
+CUDA_VISIBLE_DEVICES=7 python mnist_resnet18.py
 
-cifar_base1 :   Acc: 65.340% (6534/10000)  +dropout
-cifar_base2 : Acc: 82.320% (8232/10000)
-cifar_base3 :
-
+mnist_conv2w
 """
-import torch
-from torch import optim
-from torch.backends import cudnn
-from torch import nn
-import torchvision
-from torchvision import transforms
 import os
 import argparse
-from models.basenet import resnetBase
-from utils.logger import progress_bar
+import torch
+from torch import nn
+import torch.optim as optim
+from torchvision import datasets, transforms
 from torch.autograd import Variable
+from torch.backends import cudnn
+from models.basenet import resnet18w, conv2w
+from utils.logger import progress_bar
 
 # Learning rate parameters
-BASE_LR = 0.01
-NUM_CLASSES = 100  # set the number of classes in your dataset
-BATCH_SIZE = 64
-IMAGE_SIZE = 224
-DATA_DIR = "/home/elvis/code/data/cifar"
-MODEL_NAME = "cifar_base2"
+BASE_LR = 0.001
+NUM_CLASSES = 10  # set the number of classes in your dataset
+DATA_DIR = "/home/elvis/code/data/mnist"
+BATCH_SIZE = 32
+IMAGE_SIZE = 28
+MODEL_NAME = "mnist_conv2w"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
-parser = argparse.ArgumentParser(description='PyTorch cifar_base Training')
+parser = argparse.ArgumentParser(description='PyTorch mnist_conv2w Training')
 parser.add_argument('--lr', default=BASE_LR, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', default=False, help='resume from checkpoint')
+parser.add_argument('--data', default=DATA_DIR, type=str, help='file path of the dataset')
 args = parser.parse_args()
 
 best_acc = 0.
@@ -51,40 +46,31 @@ if args.resume:
     optimizer = checkpoint["optimizer"]
 else:
     print("==> Building model...")
-    net = resnetBase(num_classes=NUM_CLASSES)
-
-print("==> Preparing data...")
-transform_train = transforms.Compose([
-    # transforms.RandomCrop(IMAGE_SIZE, padding=4),
-    transforms.Resize(IMAGE_SIZE),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
-
-transforms_test = transforms.Compose([
-    transforms.Resize(IMAGE_SIZE),
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
-
-train_set = torchvision.datasets.CIFAR100(root=DATA_DIR, train=True, download=False, transform=transform_train)
-train_loader = torch.utils.data.DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
-
-test_set = torchvision.datasets.CIFAR100(root=DATA_DIR, train=False, download=False, transform=transforms_test)
-test_loader = torch.utils.data.DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=2)
-
-classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    net = conv2w(num_classes=NUM_CLASSES)
 
 # print(torch_summarize(net))
 # print(net)
 if USE_GPU:
     net.cuda()
-    # net = torch.nn.DataParallel(net.module, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 
-log = open("./log/" + MODEL_NAME + '_cifar100.txt', 'a')
+log = open("./log/%s.txt" % MODEL_NAME, 'a')
 print("==> Preparing data...")
+kwargs = {'num_workers': 2, 'pin_memory': True} if USE_GPU else {}
+train_loader = torch.utils.data.DataLoader(
+    datasets.MNIST(DATA_DIR, train=True, download=True,
+                   transform=transforms.Compose([
+                       transforms.ToTensor(),
+                       transforms.Normalize((0.1307,), (0.3081,))
+                   ])),
+    batch_size=BATCH_SIZE, shuffle=True, **kwargs)
+test_loader = torch.utils.data.DataLoader(
+    datasets.MNIST(DATA_DIR, train=False, transform=transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
+    ])),
+    batch_size=BATCH_SIZE, shuffle=True, **kwargs)
+
 criterion = nn.CrossEntropyLoss()
 
 
@@ -155,32 +141,9 @@ def test(epoch, net):
         best_acc = acc
 
 
-for param in net.parameters():
-    param.requires_grad = False
-
-optim_params = list(net.fc.parameters())
-for param in optim_params:
-    param.requires_grad = True
-
-epoch1 = 12
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
-optimizer = optim.Adam(optim_params, weight_decay=0.0005)
-if start_epoch < epoch1:
-    for epoch in range(start_epoch, epoch1):
-        train(epoch, net, optimizer)
-        test(epoch, net)
-    start_epoch = epoch1
-
-optim_params = list(net.parameters())
-for param in optim_params:
-    param.requires_grad = True
-
-# fc_params = list(map(id, net.fc2.parameters()))
-# base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
-
-# optimizer = optim.SGD(optim_params, lr=0.0001, weight_decay=0.0005)
-optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.0005)
-for epoch in range(start_epoch, 200):
+optimizer = optim.Adam(net.parameters(), weight_decay=0.0005)
+for epoch in range(start_epoch, 500):
     train(epoch, net, optimizer)
     test(epoch, net)
 log.close()

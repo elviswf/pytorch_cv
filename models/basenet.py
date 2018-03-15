@@ -8,9 +8,22 @@
   
 """
 from torch import nn
-from models.bilinearAR import BilinearAR
 from torchvision.models import resnet50, resnet18
 import torch.nn.functional as F
+
+
+def init_weights(model):
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d):
+            nn.init.kaiming_normal(m.weight)
+            if m.bias is not None:
+                m.bias.data.zero_()
+        elif isinstance(m, nn.BatchNorm2d):
+            m.weight.data.fill_(1.0)
+            m.bias.data.zero_()
+        elif isinstance(m, nn.Linear):
+            if m.bias is not None:
+                m.bias.data.zero_()
 
 
 def resnetBase(num_classes=100):
@@ -19,6 +32,18 @@ def resnetBase(num_classes=100):
     net.fc = nn.Sequential(
         nn.Dropout(0.5),
         nn.Linear(feat, num_classes)
+    )
+    return net
+
+
+def resnet18w(num_classes=100):
+    net = resnet18(pretrained=False)
+    feat = net.fc.in_features
+    net.fc = nn.Sequential(
+        nn.Dropout(0.5),
+        nn.Linear(feat, 512),
+        nn.ReLU(inplace=True),
+        nn.Linear(feat, num_classes, bias=False)
     )
     return net
 
@@ -33,31 +58,37 @@ def resnet50Base(num_classes=200):
     return net
 
 
-class ConvBilinear(nn.Module):
+class ConvBase(nn.Module):
     def __init__(self, num_classes=10):
-        super(ConvBilinear, self).__init__()
+        super(ConvBase, self).__init__()
         # 1 input image channel, 6 output channels, 5x5 square convolution
         # kernel
-        self.conv1 = nn.Conv2d(1, 6, 5)
-        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=3, padding=1),  # 28
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),  # 14
 
-        # an affine operation: y = Wx + b
-        self.bilinear1 = BilinearAR(16 * 4 * 4, 128)
-        self.fc = nn.Sequential(
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2)  # 7
+        )
+        self.classifier = nn.Sequential(
             nn.Dropout(0.5),
-            nn.Linear(128, num_classes)
+            nn.Linear(64 * 7 * 7, 128),
+            nn.ReLU(inplace=True),
+            nn.Linear(128, num_classes, bias=False)
         )
 
     def forward(self, x):
-        # Max pooling over a (2, 2) window
-        x = F.max_pool2d(F.relu(self.conv1(x)), (2, 2))
-        # If the size is a square you can only specify a single number
-        x = F.max_pool2d(F.relu(self.conv2(x)), 2)
-        xt = x.view(x.size(0), -1)
-        xt = F.relu(self.bilinear1(xt))
-        out = self.fc(xt)
-        return out
+        x = self.features(x)
+        x = x.view(x.size(0), -1)
+        x = self.classifier(x)
+        return x
 
 
-def bilinearNet(num_classes=10):
-    return ConvBilinear(num_classes)
+def conv2w(num_classes=10):
+    net = ConvBase(num_classes)
+    init_weights(net)
+    return net

@@ -1,42 +1,34 @@
 # -*- coding: utf-8 -*-
 """
-@Time    : 2017/12/4 15:42
+@Time    : 2018/2/5 15:48
 @Author  : Elvis
 
- cub.py
-watch --color -n1 gpustat -cpu
-CUDA_VISIBLE_DEVICES=3 python cub_attr1.py
+CUDA_VISIBLE_DEVICES=7 python mnist_resnet18.py
 
+mnist_conv2w
 """
-import torch
-from torch import nn
-from torch import optim
-from torch.backends import cudnn
-from torch.autograd import Variable
 import os
 import argparse
-from data.data_loader import DataLoader
-from models.zsl_resnet import attrWeightedCNN, attrCNNg_awa2, soft_loss_awa2
+import torch
+from torch import nn
+import torch.optim as optim
+from torchvision import datasets, transforms
+from torch.autograd import Variable
+from torch.backends import cudnn
+from models.basenet import resnet18w, conv2w
 from utils.logger import progress_bar
-from zeroshot.awa2_test import zsl_test, gzsl_test0
-import copy
-# from models.focalLoss import FocalLoss
-# from utils.param_count import torch_summarize, lr_scheduler
-# import pickle
 
 # Learning rate parameters
-BASE_LR = 0.01
-NUM_CLASSES = 50  # set the number of classes in your dataset
-NUM_ATTR = 85
-DATA_DIR = "/home/elvis/data/attribute/AwA/Animals_with_Attributes2/zsl/trainval"
-BATCH_SIZE = 128
-IMAGE_SIZE = 224
-gamma = 2.
-MODEL_NAME = "gzsl_awa2_gs0_g2"
+BASE_LR = 0.001
+NUM_CLASSES = 10  # set the number of classes in your dataset
+DATA_DIR = "/home/elvis/code/data/fashion_mnist"
+BATCH_SIZE = 32
+IMAGE_SIZE = 28
+MODEL_NAME = "fmnist_conv2w1"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
-parser = argparse.ArgumentParser(description='PyTorch Training：%s' % MODEL_NAME)
+parser = argparse.ArgumentParser(description='PyTorch fmnist_conv2w Training')
 parser.add_argument('--lr', default=BASE_LR, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', default=False, help='resume from checkpoint')
 parser.add_argument('--data', default=DATA_DIR, type=str, help='file path of the dataset')
@@ -54,33 +46,60 @@ if args.resume:
     optimizer = checkpoint["optimizer"]
 else:
     print("==> Building model...")
-    net = attrCNNg_awa2(num_attr=NUM_ATTR, num_classes=NUM_CLASSES)
+    net = conv2w(num_classes=NUM_CLASSES)
 
 # print(torch_summarize(net))
 # print(net)
 if USE_GPU:
     net.cuda()
-    # net = torch.nn.DataParallel(net.module, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 
-log = open("./log/" + MODEL_NAME + '_awa2.txt', 'a')
+log = open("./log/%s.txt" % MODEL_NAME, 'a')
 print("==> Preparing data...")
-data_loader = DataLoader(data_dir=args.data, image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
-inputs, classes = next(iter(data_loader.load_data()))
-# out = torchvision.utils.make_grid(inputs)
-# data_loader.show_image(out, title=[data_loader.data_classes[c] for c in classes])
-train_loader = data_loader.load_data(data_set='train')
-test_loader = data_loader.load_data(data_set='val')
-# criterion = nn.CrossEntropyLoss()
-criterion = soft_loss_awa2
-# criterion = FocalLoss(class_num=NUM_CLASSES, gamma=0)
+kwargs = {'num_workers': 2, 'pin_memory': True} if USE_GPU else {}
+
+print('Processing...')
 
 
-def one_hot_emb(y, depth=NUM_CLASSES):
-    y = y.view((-1, 1))
-    one_hot = torch.FloatTensor(y.size(0), depth).zero_()
-    one_hot.scatter_(1, y, 1)
-    return one_hot
+def predata(root):
+    raw_folder = 'raw'
+    processed_folder = 'processed'
+    training_file = 'training.pt'
+    test_file = 'test.pt'
+    training_set = (
+        datasets.mnist.read_image_file(os.path.join(root, raw_folder, 'train-images-idx3-ubyte')),
+        datasets.mnist.read_label_file(os.path.join(root, raw_folder, 'train-labels-idx1-ubyte'))
+    )
+    test_set = (
+        datasets.mnist.read_image_file(os.path.join(root, raw_folder, 't10k-images-idx3-ubyte')),
+        datasets.mnist.read_label_file(os.path.join(root, raw_folder, 't10k-labels-idx1-ubyte'))
+    )
+    with open(os.path.join(root, processed_folder, training_file), 'wb') as f:
+        torch.save(training_set, f)
+    with open(os.path.join(root, processed_folder, test_file), 'wb') as f:
+        torch.save(test_set, f)
+
+
+predata(DATA_DIR)
+print('Done!')
+train_loader = torch.utils.data.DataLoader(
+    datasets.FashionMNIST(DATA_DIR, train=True, download=False,
+                          transform=transforms.Compose([
+                              # transforms.RandomCrop(),
+                              # transforms.RandomHorizontalFlip(),
+                              transforms.ToTensor(),
+                              # transforms.Normalize((0.1307,), (0.3081,))
+                          ])),
+    batch_size=BATCH_SIZE, shuffle=True, **kwargs)
+test_loader = torch.utils.data.DataLoader(
+    datasets.FashionMNIST(DATA_DIR, train=False,
+                          transform=transforms.Compose([
+                              transforms.ToTensor(),
+                              # transforms.Normalize((0.1307,), (0.3081,))
+                          ])),
+    batch_size=BATCH_SIZE, shuffle=True, **kwargs)
+
+criterion = nn.CrossEntropyLoss()
 
 
 def train(epoch, net, optimizer):
@@ -96,7 +115,7 @@ def train(epoch, net, optimizer):
         inputs, targets = Variable(inputs), Variable(targets)
         optimizer.zero_grad()
 
-        out, attr = net(inputs)
+        out = net(inputs)
         loss = criterion(out, targets)
         loss.backward()
         optimizer.step()
@@ -120,7 +139,7 @@ def test(epoch, net):
         if USE_GPU:
             inputs, targets = inputs.cuda(), targets.cuda()
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
-        out, attr = net(inputs)
+        out = net(inputs)
         loss = criterion(out, targets)
 
         test_loss = loss.data[0]
@@ -132,7 +151,8 @@ def test(epoch, net):
         progress_bar(batch_idx, len(test_loader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                      % (test_loss / (batch_idx + 1), acc, correct, total))
 
-    log.write(str(correct / total) + ' ' + str(test_loss) + ' ')
+    log.write(str(correct / total) + ' ' + str(test_loss) + '\n')
+    log.flush()
 
     acc = 100. * correct / total
     if epoch > 9 and acc > best_acc:
@@ -149,45 +169,9 @@ def test(epoch, net):
         best_acc = acc
 
 
-epoch1 = 3
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
-if start_epoch < epoch1:
-    for param in net.parameters():
-        param.requires_grad = False
-    optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
-    # optim_params = list(net.fc0.parameters())
-    for param in optim_params:
-        param.requires_grad = True
-    optimizer = optim.Adam(optim_params, weight_decay=0.005)
-    for epoch in range(start_epoch, epoch1):
-        train(epoch, net, optimizer)
-        test(epoch, net)
-        gzsl_test0(epoch, net, optimizer, log, gamma=gamma)
-        net1 = copy.deepcopy(net)
-        zsl_test(epoch, net1, optimizer, log)
-        del net1
-        log.write("\n")
-        log.flush()
-    start_epoch = epoch1
-
-fc_params = list(map(id, net.fc2.parameters()))
-base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
-
-for param in base_params:
-    param.requires_grad = True
-
-optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.005)
-
-for epoch in range(start_epoch, 100):
+optimizer = optim.Adam(net.parameters())
+for epoch in range(start_epoch, 200):
     train(epoch, net, optimizer)
     test(epoch, net)
-    gzsl_test0(epoch, net, optimizer, log, gamma=gamma)
-    net1 = copy.deepcopy(net)
-    zsl_test(epoch, net1, optimizer, log)
-    del net1
-    log.write("\n")
-    log.flush()
 log.close()
-
-
-

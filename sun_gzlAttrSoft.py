@@ -33,28 +33,29 @@ from torch.autograd import Variable
 import os
 import argparse
 from data.data_loader import DataLoader
-from models.zsl_resnet import attrWeightedCNN, attrWCNNg
+from models.zsl_resnet import attrWCNNg_sun, soft_loss_sun
 # from models.focalLoss import FocalLoss
-from zeroshot.cub_test import zsl_test, gzsl_test0, gzsl_test
+from zeroshot.sun_test import zsl_test, gzsl_test0, gzsl_test
 from utils.logger import progress_bar
+import copy
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
 
 # Learning rate parameters
 BASE_LR = 0.01
-NUM_CLASSES = 200  # set the number of classes in your dataset
-NUM_ATTR = 312
-DATA_DIR = "/home/elvis/data/attribute/CUB_200_2011/zsl/trainval"
-BATCH_SIZE = 64
+NUM_CLASSES = 717  # set the number of classes in your dataset
+NUM_ATTR = 102
+DATA_DIR = "/home/elvis/data/attribute/SUN/zsl/trainval"
+BATCH_SIZE = 32
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-gamma = 1.7
-MODEL_NAME = "gzsl_resnet50_g_g17"
+gamma = 1.3
+MODEL_NAME = "sun_gzsl_resnet50_gs_g13"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
-parser = argparse.ArgumentParser(description='PyTorch zsl_resnet18_attr1 Training')
+parser = argparse.ArgumentParser(description='PyTorch sun_gzsl_resnet50_g_g17 Training')
 parser.add_argument('--lr', default=BASE_LR, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', default=False, help='resume from checkpoint')
 parser.add_argument('--data', default=DATA_DIR, type=str, help='file path of the dataset')
@@ -72,7 +73,7 @@ if args.resume:
     optimizer = checkpoint["optimizer"]
 else:
     print("==> Building model...")
-    net = attrWCNNg(num_attr=312, num_classes=NUM_CLASSES)
+    net = attrWCNNg_sun(num_attr=NUM_ATTR, num_classes=NUM_CLASSES)
 
 # print(torch_summarize(net))
 # print(net)
@@ -81,7 +82,7 @@ if USE_GPU:
     # net = torch.nn.DataParallel(net.module, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 
-log = open("./log/" + MODEL_NAME + '_cub.txt', 'a')
+log = open("./log/" + MODEL_NAME + '_sun_0.txt', 'a')
 print("==> Preparing data...")
 data_loader = DataLoader(data_dir=args.data, image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
 inputs, classes = next(iter(data_loader.load_data()))
@@ -89,7 +90,7 @@ inputs, classes = next(iter(data_loader.load_data()))
 # data_loader.show_image(out, title=[data_loader.data_classes[c] for c in classes])
 train_loader = data_loader.load_data(data_set='train')
 test_loader = data_loader.load_data(data_set='val')
-criterion = nn.CrossEntropyLoss()
+criterion = soft_loss_sun
 # criterion = FocalLoss(class_num=NUM_CLASSES, gamma=0)
 
 
@@ -153,8 +154,7 @@ def test(epoch, net):
         progress_bar(batch_idx, len(test_loader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                      % (test_loss / (batch_idx + 1), acc, correct, total))
 
-    log.write(str(correct / total) + ' ' + str(test_loss) + '\n')
-    log.flush()
+    log.write(str(correct / total) + ' ' + str(test_loss) + ' ')
 
     acc = 100. * correct / total
     if epoch > 9 and acc > best_acc:
@@ -171,7 +171,7 @@ def test(epoch, net):
         best_acc = acc
 
 
-epoch1 = 10
+epoch1 = 0
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
 if start_epoch < epoch1:
     for param in net.parameters():
@@ -184,7 +184,11 @@ if start_epoch < epoch1:
     for epoch in range(start_epoch, epoch1):
         train(epoch, net, optimizer)
         test(epoch, net)
-        gzsl_test0(epoch, net, optimizer, gamma)
+        gzsl_test0(epoch, net, optimizer, log, gamma)
+        net1 = copy.deepcopy(net)
+        zsl_test(epoch, net1, optimizer, log)
+        log.write("\n")
+        log.flush()
     start_epoch = epoch1
 
 fc_params = list(map(id, net.fc2.parameters()))
@@ -194,16 +198,14 @@ for param in base_params:
 
 optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.005)
 
-import copy
 for epoch in range(start_epoch, 100):
     train(epoch, net, optimizer)
     test(epoch, net)
-    gzsl_test0(epoch, net, optimizer, gamma)
-    # if epoch > 10:
-    #     net1 = copy.deepcopy(net)
-    #     zsl_test(epoch, net1, optimizer)
-    #     del net1
-    # net2 = copy.deepcopy(net)
-    # gzsl_test(epoch, net2, optimizer)
-    # del net2
+    gzsl_test0(epoch, net, optimizer, log, gamma)
+    net1 = copy.deepcopy(net)
+    zsl_test(epoch, net1, optimizer, log)
+    log.write("\n")
+    log.flush()
+    del net1
+
 log.close()
