@@ -114,10 +114,9 @@ def gzsl_test0(epoch, net, optimizer, log, gamma=2.):
         unseen_prob, unseen_class = torch.max(logit[:, num_seen_classes:], 1)
         predicted = seen_class
         for i, spi in enumerate(seen_prob):
-            if unseen_prob[i] > -0.1:
+            if seen_prob[i] < unseen_prob[i] * gamma:
                 predicted[i] = unseen_class[i] + num_seen_classes
 
-        _, predicted = torch.max(out.data, 1)
         total += targets.size(0)
         correct_list = predicted.eq(targets.data).cpu()
         target_list = targets.data.cpu()

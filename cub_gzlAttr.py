@@ -5,7 +5,7 @@
 
  cub.py
 watch --color -n1 gpustat -cpu
-CUDA_VISIBLE_DEVICES=3 python cub_attr1.py
+CUDA_VISIBLE_DEVICES=7 python cub_
 
 zsl_resnet18_fc00 : Sigmoid + dropout 0.5  74.789% (1329/1777)  ZSL_Acc: 53.354% (1583/2967)  200 epoch
 zsl_resnet18_fc01 : Sigmoid with fc pretrain   Acc: 73.044% (1298/1777)  ZSL_Acc: 24.537% (728/2967)
@@ -33,7 +33,7 @@ from torch.autograd import Variable
 import os
 import argparse
 from data.data_loader import DataLoader
-from models.zsl_resnet import attrWeightedCNN, attrWCNNg
+from models.zsl_resnet import attrWeightedCNN, attrWCNNg, RegLoss
 # from models.focalLoss import FocalLoss
 from zeroshot.cub_test import zsl_test, gzsl_test0, gzsl_test
 from utils.logger import progress_bar
@@ -45,12 +45,14 @@ BASE_LR = 0.01
 NUM_CLASSES = 200  # set the number of classes in your dataset
 NUM_ATTR = 312
 DATA_DIR = "/home/elvis/data/attribute/CUB_200_2011/zsl/trainval"
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-gamma = 1.7
-MODEL_NAME = "gzsl_resnet50_g_g17"
+gamma = 1.8
+lamda1 = 0.1
+lamda2 = 0.1
+MODEL_NAME = "gzsl_g18_lamda1_gs"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -89,7 +91,8 @@ inputs, classes = next(iter(data_loader.load_data()))
 # data_loader.show_image(out, title=[data_loader.data_classes[c] for c in classes])
 train_loader = data_loader.load_data(data_set='train')
 test_loader = data_loader.load_data(data_set='val')
-criterion = nn.CrossEntropyLoss()
+# criterion = nn.CrossEntropyLoss()
+criterion = RegLoss(lamda2, superclass="cub")
 # criterion = FocalLoss(class_num=NUM_CLASSES, gamma=0)
 
 
@@ -117,8 +120,8 @@ def train(epoch, net, optimizer):
         inputs, targets = Variable(inputs), Variable(targets)
         optimizer.zero_grad()
 
-        out, attr = net(inputs)
-        loss = criterion(out, targets)
+        out, w = net(inputs)
+        loss = criterion(out, targets, w)
         loss.backward()
         optimizer.step()
 
@@ -141,8 +144,8 @@ def test(epoch, net):
         if USE_GPU:
             inputs, targets = inputs.cuda(), targets.cuda()
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
-        out, attr = net(inputs)
-        loss = criterion(out, targets)
+        out, w = net(inputs)
+        loss = criterion(out, targets, w)
 
         test_loss = loss.data[0]
         _, predicted = torch.max(out.data, 1)
@@ -171,39 +174,43 @@ def test(epoch, net):
         best_acc = acc
 
 
-epoch1 = 10
+import copy
+epoch1 = 3
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
 if start_epoch < epoch1:
     for param in net.parameters():
         param.requires_grad = False
-    optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
-    # optim_params = list(net.fc0.parameters())
+    # optim_params = list(net.fc0.parameters()) + list(net.fc1.parameters())
+    optim_params = list(net.fc1.parameters())
     for param in optim_params:
         param.requires_grad = True
-    optimizer = optim.Adam(optim_params, weight_decay=0.005)
+    optimizer = optim.Adam(optim_params, weight_decay=0.0005)
     for epoch in range(start_epoch, epoch1):
         train(epoch, net, optimizer)
         test(epoch, net)
-        gzsl_test0(epoch, net, optimizer, gamma)
+        gzsl_test0(epoch, net, optimizer, log, gamma=gamma)
+        net1 = copy.deepcopy(net)
+        zsl_test(epoch, net1, optimizer, log)
+        del net1
+        log.write("\n")
+        log.flush()
     start_epoch = epoch1
 
 fc_params = list(map(id, net.fc2.parameters()))
 base_params = list(filter(lambda p: id(p) not in fc_params, net.parameters()))
+
 for param in base_params:
     param.requires_grad = True
 
-optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.005)
+optimizer = optim.Adagrad(base_params, lr=0.001, weight_decay=0.0005)
 
-import copy
 for epoch in range(start_epoch, 100):
     train(epoch, net, optimizer)
     test(epoch, net)
-    gzsl_test0(epoch, net, optimizer, gamma)
-    # if epoch > 10:
-    #     net1 = copy.deepcopy(net)
-    #     zsl_test(epoch, net1, optimizer)
-    #     del net1
-    # net2 = copy.deepcopy(net)
-    # gzsl_test(epoch, net2, optimizer)
-    # del net2
+    gzsl_test0(epoch, net, optimizer, log, gamma=gamma)
+    net1 = copy.deepcopy(net)
+    zsl_test(epoch, net1, optimizer, log)
+    del net1
+    log.write("\n")
+    log.flush()
 log.close()

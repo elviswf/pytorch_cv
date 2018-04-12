@@ -49,7 +49,7 @@ def zsl_test(epoch, net, optimizer, log):
         if USE_GPU:
             inputs, targets = inputs.cuda(), targets.cuda()
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
-        out, attr = net(inputs)
+        out, w = net(inputs)
         loss = criterion(out, targets)
 
         test_loss = loss.data[0]
@@ -110,7 +110,7 @@ def gzsl_test(epoch, net, optimizer):
         if USE_GPU:
             inputs, targets = inputs.cuda(), targets.cuda()
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
-        out, attr = net(inputs)
+        out, w = net(inputs)
         loss = criterion(out, targets)
 
         test_loss = loss.data[0]
@@ -170,7 +170,7 @@ def gzsl_test0(epoch, net, optimizer, log, gamma=2.):
         if USE_GPU:
             inputs, targets = inputs.cuda(), targets.cuda()
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
-        out, attr = net(inputs)
+        out, w = net(inputs)
         loss = criterion(out, targets)
 
         test_loss = loss.data[0]
@@ -183,6 +183,7 @@ def gzsl_test0(epoch, net, optimizer, log, gamma=2.):
         for i, spi in enumerate(seen_prob):
             if seen_prob[i] < unseen_prob[i] * gamma:
                 predicted[i] = unseen_class[i] + 150
+
         total += targets.size(0)
         correct_list = predicted.eq(targets.data).cpu()
         target_list = targets.data.cpu()

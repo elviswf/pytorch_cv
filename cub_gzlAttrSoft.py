@@ -42,7 +42,6 @@ import copy
 # from models.focalLoss import FocalLoss
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
-
 # Learning rate parameters
 BASE_LR = 0.01
 NUM_CLASSES = 200  # set the number of classes in your dataset
@@ -52,8 +51,8 @@ BATCH_SIZE = 64
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-gamma = 1.5
-MODEL_NAME = "gzsl_resnet50_gs5_g15"
+gamma = 2.0
+MODEL_NAME = "gzsl_resnet50_gs10_g20"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -173,7 +172,7 @@ def test(epoch, net):
 
 
 # import copy
-epoch1 = 0
+epoch1 = 4
 # optimizer = optim.Adagrad(optim_params, lr=0.001, weight_decay=0.005)
 if start_epoch < epoch1:
     for param in net.parameters():

@@ -99,9 +99,63 @@ if not os.access(file_name, os.W_OK):
 classes = list()
 with open(file_name) as class_file:
     for line in class_file:
-        classes.append(line.strip().split(' ', 1)[1].split(', ', 1)[0])
+        classes.append(line.strip().split(' ', 1)[1])
 
 emb_w = tsne_w(w_np)
+emb_w.shape
+
+from sklearn.cluster import KMeans
+
+kmeans = KMeans(init='k-means++', n_clusters=10, n_init=10)
+kmeans.fit(emb_w)
+# Step size of the mesh. Decrease to increase the quality of the VQ.
+h = .02  # point in the mesh [x_min, x_max]x[y_min, y_max].
+
+# Plot the decision boundary. For that, we will assign a color to each
+x_min, x_max = emb_w[:, 0].min() - 1, emb_w[:, 0].max() + 1
+y_min, y_max = emb_w[:, 1].min() - 1, emb_w[:, 1].max() + 1
+xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+
+# Obtain labels for each point in mesh. Use last trained model.
+Z = kmeans.predict(np.c_[xx.ravel(), yy.ravel()])
+
+# Put the result into a color plot
+Z = Z.reshape(xx.shape)
+
+plt.figure(figsize=(12, 12))
+plt.clf()
+ax = plt.subplot(aspect='equal')
+plt.imshow(Z, interpolation='nearest',
+           extent=(xx.min(), xx.max(), yy.min(), yy.max()),
+           cmap=plt.cm.Pastel1,
+           aspect='auto', origin='lower')
+
+palette = np.array(sns.color_palette("hls", nclass))
+# plt.plot(emb_w[:, 0], emb_w[:, 1], 'k.', markersize=2)
+ax.scatter(emb_w[:, 0], emb_w[:, 1], lw=0, s=20, c=palette[yc.astype(np.int)])
+# Plot the centroids as a white X
+centroids = kmeans.cluster_centers_
+lebels = kmeans.labels_
+# plt.scatter(centroids[:, 0], centroids[:, 1],
+#             marker='x', s=169, linewidths=3,
+#             color='w', zorder=10)
+
+txts = classes
+for i in range(0, nclass, 6):
+    # Position of each label.
+    # if (i % 8 == 0):
+    xtext, ytext = emb_w[i]
+    if len(txts[i]) > 10:
+        txts[i] = txts[i][:28]
+    txt = ax.text(xtext, ytext, txts[i], fontsize=8)
+# plt.title('K-means clustering on fc_W in resnet50')
+plt.xlim(x_min, x_max)
+plt.ylim(y_min, y_max)
+plt.xticks(())
+plt.yticks(())
+plt.tight_layout()
+plt.savefig("data/embedding/imagenet1k_w1.pdf")
+
 scatter(emb_w, colors=yc, txts=classes, save_name="resnet50_fc_no_bias3.pdf")
 
 """
@@ -140,6 +194,7 @@ w_fmnist = w_fc.data.cpu().numpy()
 w_fmnist.shape
 np.save("data/w_fmnist.npy", w_fmnist)
 
+w_fmnist = np.load("data/w_fmnist.npy")
 nclass = 10
 yc = np.array(list(range(nclass)))
 fmnist_path = "data/fashion_mnist_classes.txt"
@@ -149,6 +204,58 @@ with open(fmnist_path) as class_file:
         classes.append(line.strip().split('\t', 1)[1])
 
 emb_w_fmnist = tsne_w(w_fmnist)
+
+
+from sklearn.cluster import KMeans
+
+kmeans = KMeans(init='k-means++', n_clusters=4, n_init=10)
+kmeans.fit(emb_w_fmnist)
+# Step size of the mesh. Decrease to increase the quality of the VQ.
+h = .2  # point in the mesh [x_min, x_max]x[y_min, y_max].
+
+# Plot the decision boundary. For that, we will assign a color to each
+x_min, x_max = emb_w_fmnist[:, 0].min() - 1, emb_w_fmnist[:, 0].max() + 1
+y_min, y_max = emb_w_fmnist[:, 1].min() - 1, emb_w_fmnist[:, 1].max() + 1
+xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+
+# Obtain labels for each point in mesh. Use last trained model.
+Z = kmeans.predict(np.c_[xx.ravel(), yy.ravel()])
+
+# Put the result into a color plot
+Z = Z.reshape(xx.shape)
+# figsize=(12, 12)
+plt.figure(1)
+plt.clf()
+ax = plt.subplot(aspect='equal')
+plt.imshow(Z, interpolation='nearest',
+           extent=(xx.min(), xx.max(), yy.min(), yy.max()),
+           cmap=plt.cm.Pastel1,
+           aspect='auto', origin='lower')
+
+palette = np.array(sns.color_palette("hls", nclass))
+# plt.plot(emb_w_fmnist[:, 0], emb_w_fmnist[:, 1], 'k.', markersize=2)
+ax.scatter(emb_w_fmnist[:, 0], emb_w_fmnist[:, 1], lw=0, s=20, c=palette[yc.astype(np.int)])
+# Plot the centroids as a white X
+centroids = kmeans.cluster_centers_
+lebels = kmeans.labels_
+# plt.scatter(centroids[:, 0], centroids[:, 1],
+#             marker='x', s=169, linewidths=3,
+#             color='w', zorder=10)
+
+txts = classes
+for i in range(nclass):
+    xtext, ytext = emb_w_fmnist[i]
+    txt = ax.text(xtext*0.9-10, ytext, txts[i], fontsize=8)
+# plt.title('K-means clustering on fc_W in resnet50')
+plt.xlim(x_min, x_max)
+plt.ylim(y_min, y_max)
+plt.xticks(())
+plt.yticks(())
+plt.tight_layout()
+plt.savefig("data/embedding/emb_w_fmnist.pdf")
+
+
+
 scatter(emb_w_fmnist, colors=yc, txts=classes, save_name="fmnist_w.pdf", font=12)
 
 # plt.imshow(fm_x_train[0].reshape((28, 28)), cmap='gray')
@@ -214,7 +321,3 @@ len(cifar100_classes)
 
 emb_w_cifar100 = tsne_w(w_cifar100)
 scatter(emb_w_cifar100, colors=yc, txts=cifar100_classes, save_name="cifar100_w.pdf", font=12)
-
-
-
-

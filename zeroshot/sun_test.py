@@ -203,7 +203,8 @@ def gzsl_test0(epoch, net, optimizer, log, gamma=2.):
             acc_unseen = 100. * correct_unseen / total_unseen
         else:
             acc_unseen = 0.
-        progress_bar(batch_idx, len(test_loader), 'Loss: %.3f | acc_seen: %.3f%% (%d/%d) | acc_unseen: %.3f%% (%d/%d)'
+        progress_bar(batch_idx, len(test_loader),
+                     'Loss: %.3f | acc_seen: %.3f%% (%d/%d) | acc_unseen: %.3f%% (%d/%d)'
                      % (test_loss / (batch_idx + 1), acc_seen, correct_seen, total_seen,
                         acc_unseen, correct_unseen, total_unseen))
     acc_seen = 100. * correct_seen / total_seen

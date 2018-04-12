@@ -7,7 +7,7 @@
 """
 import torch
 
-MODEL_NAME = "gzsl_resnet50_g_g17"
+MODEL_NAME = "gzsl_awa2_g5_la11"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 

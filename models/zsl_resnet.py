@@ -13,6 +13,8 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torchvision.models import resnet18, resnet50, resnet101
+
+
 # from torch.nn.init import kaiming_normal, orthogonal
 
 
@@ -48,18 +50,28 @@ from torchvision.models import resnet18, resnet50, resnet101
 #         xt = wt.mul(attr)
 #         attr_y = self.fc2(xt)  # xt (batch,   square sum root
 #         return attr_y, attr
-#
-#
-# def attrCNN(num_attr=312, num_classes=150):
-#     cnn = resnet50(pretrained=True)
-#     w_attr = np.load("data/order_cub_attr.npy")
-#     # w_attr_sum = np.sum(w_attr, 0)
-#     # w_attr = w_attr/w_attr_sum
-#     # w_attr[:, 0].sum()
-#     w_attr = w_attr[:num_classes, :] / 100.
-#     w_attr = torch.FloatTensor(w_attr)  # 312 * 150
-#     # (torch.ones((1, 2)).mm(torch.ones((2, 3))))
-#     return ConvPoolNet(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
+
+class AttriCNN(nn.Module):
+    def __init__(self, cnn, w_attr, num_attr=312, num_classes=200):
+        super(AttriCNN, self).__init__()
+        self.cnn = nn.Sequential(*list(cnn.children())[:-1])
+        self.feat_size = cnn.fc.in_features
+
+        self.fc1 = nn.Sequential(
+            nn.Linear(self.feat_size, num_attr, bias=False),
+            # nn.Dropout(0.5),
+            # nn.Tanh(),
+        )
+
+        self.fc2 = nn.Linear(num_attr, num_classes, bias=False)
+        self.fc2.weight = nn.Parameter(w_attr, requires_grad=False)
+
+    def forward(self, x):
+        feat = self.cnn(x)
+        feat = feat.view(feat.shape[0], -1)
+        xt = self.fc1(feat)
+        attr_y = self.fc2(xt)
+        return attr_y, self.fc1[0].weight
 
 
 def attrWeightedCNN(num_attr=312, num_classes=150):
@@ -75,7 +87,7 @@ def attrWCNNg(num_attr=312, num_classes=200):
     w_attr = np.load("data/order_cub_attr.npy")
     w_attr = w_attr / 100.
     w_attr = torch.FloatTensor(w_attr)  # 312 * 150
-    return AttriWeightedCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
+    return AttriCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
 
 
 def attrWCNNg_sun(num_attr=102, num_classes=717):
@@ -83,12 +95,12 @@ def attrWCNNg_sun(num_attr=102, num_classes=717):
     w_attr = np.load("data/order_sun_attr.npy")
     # w_attr = w_attr / 100.
     w_attr = torch.FloatTensor(w_attr)  # 312 * 150
-    return AttriWeightedCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
+    return AttriCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
 
 
 def attrCNN_cubfull(num_attr=312, num_classes=200):
     cnn = resnet50(pretrained=True)
-    w_attr = np.load("data/order_cub_attr.npy")
+    w_attr = np.load("data/cub_attr.npy")
     w_attr = torch.FloatTensor(w_attr / 100.)  # 312 * 200
     return AttriWeightedCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
 
@@ -106,7 +118,7 @@ def attrCNNg_awa2(num_attr=85, num_classes=50):
     w_attr = np.load("data/order_awa2_attr.npy")
     # w_attr = w_attr[:num_classes, :]
     w_attr = torch.FloatTensor(w_attr / 100.)
-    return AttriWeightedCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
+    return AttriCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
 
 
 class AttriWeightedCNN(nn.Module):
@@ -190,7 +202,7 @@ def soft_loss(out, targets):
     soft_ce = - torch.mean(soft_celoss(out, soft_target))
 
     ce = F.cross_entropy(out, targets)
-    alpha = 0.5
+    alpha = 0.2
     loss = alpha * ce + (1. - alpha) * soft_ce
     return loss
 
@@ -225,3 +237,24 @@ def soft_loss_sun(out, targets):
     alpha = 0.5
     loss = alpha * ce + (1. - alpha) * soft_ce
     return loss
+
+
+class RegLoss(nn.Module):
+    def __init__(self, lamda2=0.1, superclass="cub"):
+        super(RegLoss, self).__init__()
+        # self.lamda1 = lamda1
+        self.lamda2 = lamda2
+        wa = np.load("data/order_%s_attr.npy" % superclass)
+        if superclass != "sun":
+            wa = wa / 100.
+        self.wa = Variable(torch.FloatTensor(wa), requires_grad=False).cuda()
+
+    def forward(self, out, targets, w):
+        # targets_data = targets.data
+        # targets_data = targets_data.type(torch.cuda.LongTensor)
+        # sy = self.wa[targets_data]
+        # sy = Variable(self.wa, requires_grad=False).cuda()
+        ce = F.cross_entropy(out, targets)
+        loss = ce + self.lamda2 * torch.mean(torch.norm(torch.matmul(self.wa, w), 2, 1))
+        # + self.lamda1 * torch.mean(torch.norm(xt, 2, 1))
+        return loss
