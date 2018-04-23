@@ -7,7 +7,7 @@
 """
 import torch
 
-MODEL_NAME = "gzsl_awa2_g5_la11"
+MODEL_NAME = "gzsl_resnet50_cub_epoch20acc56"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -189,4 +189,9 @@ class DataLoader(object):
     #     return tensor
 
 
-
+# import numpy as np
+# x = np.random.rand(6, 5)
+# xt = np.dot(x, x.transpose())
+# w, v = np.linalg.eig(xt)
+# w
+# v

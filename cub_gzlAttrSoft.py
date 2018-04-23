@@ -35,7 +35,7 @@ import os
 import argparse
 from data.data_loader import DataLoader
 from models.zsl_resnet import attrWeightedCNN, attrWCNNg, soft_loss
-from zeroshot.cub_test import zsl_test, gzsl_test0, gzsl_test
+from zeroshot.cub_test import zsl_test, gzsl_test0
 from utils.logger import progress_bar
 import copy
 

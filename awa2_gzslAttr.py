@@ -25,7 +25,7 @@ import copy
 # from models.focalLoss import FocalLoss
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
-
+torch.manual_seed(999)
 # Learning rate parameters
 BASE_LR = 0.01
 NUM_CLASSES = 50  # set the number of classes in your dataset
@@ -33,9 +33,10 @@ NUM_ATTR = 85
 DATA_DIR = "/home/elvis/data/attribute/AwA/Animals_with_Attributes2/zsl/trainval"
 BATCH_SIZE = 128
 IMAGE_SIZE = 224
-gamma = 5.
+gamma = 10.
+lamda1 = 0.05
 lamda2 = 0.0
-MODEL_NAME = "gzsl_awa2_g5_la0"
+MODEL_NAME = "gzsl_awa2_g10_la1ws0"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -76,7 +77,7 @@ inputs, classes = next(iter(data_loader.load_data()))
 train_loader = data_loader.load_data(data_set='train')
 test_loader = data_loader.load_data(data_set='val')
 # criterion = nn.CrossEntropyLoss()
-criterion = RegLoss(lamda2, superclass="awa2")
+criterion = RegLoss(lamda1=lamda1, lamda2=lamda2, superclass="awa2")
 # criterion = FocalLoss(class_num=NUM_CLASSES, gamma=0)
 
 

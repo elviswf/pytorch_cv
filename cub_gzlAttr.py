@@ -35,11 +35,11 @@ import argparse
 from data.data_loader import DataLoader
 from models.zsl_resnet import attrWeightedCNN, attrWCNNg, RegLoss
 # from models.focalLoss import FocalLoss
-from zeroshot.cub_test import zsl_test, gzsl_test0, gzsl_test
+from zeroshot.cub_test import zsl_test, gzsl_test0
 from utils.logger import progress_bar
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
-
+torch.manual_seed(999)
 # Learning rate parameters
 BASE_LR = 0.01
 NUM_CLASSES = 200  # set the number of classes in your dataset
@@ -49,10 +49,10 @@ BATCH_SIZE = 32
 IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
-gamma = 1.8
-lamda1 = 0.1
+gamma = 1.3
+lamda1 = 0.0
 lamda2 = 0.1
-MODEL_NAME = "gzsl_g18_lamda1_gs"
+MODEL_NAME = "gzsl_g14_lamda01_wgs0w_sigmoid"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -92,7 +92,7 @@ inputs, classes = next(iter(data_loader.load_data()))
 train_loader = data_loader.load_data(data_set='train')
 test_loader = data_loader.load_data(data_set='val')
 # criterion = nn.CrossEntropyLoss()
-criterion = RegLoss(lamda2, superclass="cub")
+criterion = RegLoss(lamda1=lamda1, lamda2=lamda2, superclass="cub")
 # criterion = FocalLoss(class_num=NUM_CLASSES, gamma=0)
 
 

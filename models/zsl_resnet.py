@@ -60,7 +60,7 @@ class AttriCNN(nn.Module):
         self.fc1 = nn.Sequential(
             nn.Linear(self.feat_size, num_attr, bias=False),
             # nn.Dropout(0.5),
-            # nn.Tanh(),
+            # nn.Sigmoid(),
         )
 
         self.fc2 = nn.Linear(num_attr, num_classes, bias=False)
@@ -71,7 +71,7 @@ class AttriCNN(nn.Module):
         feat = feat.view(feat.shape[0], -1)
         xt = self.fc1(feat)
         attr_y = self.fc2(xt)
-        return attr_y, self.fc1[0].weight
+        return attr_y, (feat, self.fc1[0].weight)
 
 
 def attrWeightedCNN(num_attr=312, num_classes=150):
@@ -240,21 +240,39 @@ def soft_loss_sun(out, targets):
 
 
 class RegLoss(nn.Module):
-    def __init__(self, lamda2=0.1, superclass="cub"):
+    def __init__(self, lamda1=0.1, lamda2=0.1, superclass="cub"):
         super(RegLoss, self).__init__()
-        # self.lamda1 = lamda1
+        self.lamda1 = lamda1
         self.lamda2 = lamda2
         wa = np.load("data/order_%s_attr.npy" % superclass)
         if superclass != "sun":
             wa = wa / 100.
-        self.wa = Variable(torch.FloatTensor(wa), requires_grad=False).cuda()
+        if superclass == "cub":
+            num_seen = 150
+        elif superclass == "sun":
+            num_seen = 645
+        else:
+            num_seen = 40
+        self.wa_seen = Variable(torch.FloatTensor(wa[:num_seen, :]), requires_grad=False).cuda()
+        self.wa_unseen = Variable(torch.FloatTensor(wa[num_seen:, :]), requires_grad=False).cuda()
+        # self.wa = torch.FloatTensor(wa).cuda()
 
     def forward(self, out, targets, w):
         # targets_data = targets.data
         # targets_data = targets_data.type(torch.cuda.LongTensor)
         # sy = self.wa[targets_data]
-        # sy = Variable(self.wa, requires_grad=False).cuda()
+        # sy_var = Variable(sy, requires_grad=False).cuda()
         ce = F.cross_entropy(out, targets)
-        loss = ce + self.lamda2 * torch.mean(torch.norm(torch.matmul(self.wa, w), 2, 1))
+        xt, wt = w
+        ws_seen = torch.matmul(self.wa_seen, wt)
+        ws_unseen = torch.matmul(self.wa_unseen, wt)
+        loss = ce + self.lamda1 * torch.mean(torch.mean(ws_seen ** 2, 1)) - \
+               self.lamda2 * torch.mean(torch.mean(wt ** 2, 1))
+               # self.lamda2 * torch.mean(torch.mean(ws_unseen ** 2, 1)) + \
+        # self.lamda2 * torch.mean((torch.matmul(sy_var, wt) - xt) ** 2)
+        # torch.mean(torch.norm((torch.matmul(sy_var, wt) - xt), 2, 1))
+        # self.lamda2 * torch.mean(torch.norm(torch.matmul(sy_var, w), 2, 1))
+        # torch.mean(torch.matmul(sy_var, w) ** 2)
+        # self.lamda2 * torch.mean(torch.mean(ws ** 2, 1))   torch.mean(torch.norm(ws, 2, 1))
         # + self.lamda1 * torch.mean(torch.norm(xt, 2, 1))
         return loss

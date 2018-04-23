@@ -39,7 +39,7 @@ from zeroshot.sun_test import zsl_test, gzsl_test0, gzsl_test
 from utils.logger import progress_bar
 # from utils.param_count import torch_summarize, lr_scheduler
 # import pickle
-
+torch.manual_seed(999)
 # Learning rate parameters
 BASE_LR = 0.01
 NUM_CLASSES = 717  # set the number of classes in your dataset
@@ -50,8 +50,9 @@ IMAGE_SIZE = 224
 # MODEL_NAME = "zsl_resnet18_fc1"
 # MODEL_NAME = "zsl_resnet18_fc1_end"
 gamma = 1.4
-lamda2 = 0.1
-MODEL_NAME = "sun_gzsl_g1_g14d"
+lamda1 = 0.05
+lamda2 = 0.0
+MODEL_NAME = "sun_gzsl_g1ws0_g14"
 USE_GPU = torch.cuda.is_available()
 MODEL_SAVE_FILE = MODEL_NAME + '.pth'
 
@@ -91,7 +92,7 @@ inputs, classes = next(iter(data_loader.load_data()))
 train_loader = data_loader.load_data(data_set='train')
 test_loader = data_loader.load_data(data_set='val')
 # criterion = nn.CrossEntropyLoss()
-criterion = RegLoss(lamda2=lamda2, superclass="sun")
+criterion = RegLoss(lamda1=lamda1, lamda2=lamda2, superclass="sun")
 # criterion = FocalLoss(class_num=NUM_CLASSES, gamma=0)
 
 
