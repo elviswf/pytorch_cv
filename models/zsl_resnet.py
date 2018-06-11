@@ -74,6 +74,64 @@ class AttriCNN(nn.Module):
         return attr_y, (feat, self.fc1[0].weight)
 
 
+
+class AttriWeightedCNN(nn.Module):
+    def __init__(self, cnn, w_attr, num_attr=312, num_classes=150):
+        super(AttriWeightedCNN, self).__init__()
+        self.cnn = nn.Sequential(*list(cnn.children())[:-1])
+        self.feat_size = cnn.fc.in_features
+
+        self.fc0 = nn.Sequential(
+            nn.Linear(self.feat_size, num_attr),
+            # nn.Dropout(0.5),
+            # nn.Tanh(),
+        )
+        self.fc1 = nn.Sequential(
+            nn.Linear(self.feat_size, num_attr),
+            nn.Dropout(0.5),
+            nn.Sigmoid(),
+            # nn.Tanh(),
+            # nn.Linear(self.feat_size, 32),
+            # nn.Linear(32, num_attr),
+        )
+
+        self.fc2 = nn.Linear(num_attr, num_classes, bias=False)
+        self.fc2.weight = nn.Parameter(w_attr, requires_grad=False)
+
+    def forward(self, x):
+        feat = self.cnn(x)
+        feat = feat.view(feat.shape[0], -1)
+        attr = self.fc0(feat)
+        # xt = self.fc1(attr)
+        wt = self.fc1(feat)
+        xt = wt.mul(attr)
+        attr_y = self.fc2(xt)  # xt (batch,   square sum root
+        return attr_y, wt
+
+
+# class BiCompatCNN(nn.Module):
+#     def __init__(self, cnn, w_attr, num_attr=312, num_classes=200):
+#         super(BiCompatCNN, self).__init__()
+#         self.cnn = nn.Sequential(*list(cnn.children())[:-1])
+#         self.feat_size = cnn.fc.in_features
+#
+#         self.fc1 = nn.Sequential(
+#             nn.Linear(self.feat_size, num_attr, bias=False),
+#             # nn.Dropout(0.5),
+#             # nn.Sigmoid(),
+#         )
+#
+#         self.fc2 = nn.Linear(num_attr, num_classes, bias=False)
+#         self.fc2.weight = nn.Parameter(w_attr, requires_grad=False)
+#
+#     def forward(self, x):
+#         feat = self.cnn(x)
+#         feat = feat.view(feat.shape[0], -1)
+#         xt = self.fc1(feat)
+#         attr_y = self.fc2(xt)
+#         return attr_y, (feat, self.fc1[0].weight)
+
+
 def attrWeightedCNN(num_attr=312, num_classes=150):
     cnn = resnet50(pretrained=True)
     w_attr = np.load("data/order_cub_attr.npy")
@@ -119,40 +177,6 @@ def attrCNNg_awa2(num_attr=85, num_classes=50):
     # w_attr = w_attr[:num_classes, :]
     w_attr = torch.FloatTensor(w_attr / 100.)
     return AttriCNN(cnn=cnn, w_attr=w_attr, num_attr=num_attr, num_classes=num_classes)
-
-
-class AttriWeightedCNN(nn.Module):
-    def __init__(self, cnn, w_attr, num_attr=312, num_classes=150):
-        super(AttriWeightedCNN, self).__init__()
-        self.cnn = nn.Sequential(*list(cnn.children())[:-1])
-        self.feat_size = cnn.fc.in_features
-
-        self.fc0 = nn.Sequential(
-            nn.Linear(self.feat_size, num_attr),
-            # nn.Dropout(0.5),
-            # nn.Tanh(),
-        )
-        self.fc1 = nn.Sequential(
-            nn.Linear(self.feat_size, num_attr),
-            nn.Dropout(0.5),
-            nn.Sigmoid(),
-            # nn.Tanh(),
-            # nn.Linear(self.feat_size, 32),
-            # nn.Linear(32, num_attr),
-        )
-
-        self.fc2 = nn.Linear(num_attr, num_classes, bias=False)
-        self.fc2.weight = nn.Parameter(w_attr, requires_grad=False)
-
-    def forward(self, x):
-        feat = self.cnn(x)
-        feat = feat.view(feat.shape[0], -1)
-        attr = self.fc0(feat)
-        # xt = self.fc1(attr)
-        wt = self.fc1(feat)
-        xt = wt.mul(attr)
-        attr_y = self.fc2(xt)  # xt (batch,   square sum root
-        return attr_y, wt
 
 
 def CNNw(num_classes=150):
@@ -268,7 +292,7 @@ class RegLoss(nn.Module):
         ws_unseen = torch.matmul(self.wa_unseen, wt)
         loss = ce + self.lamda1 * torch.mean(torch.mean(ws_seen ** 2, 1)) - \
                self.lamda2 * torch.mean(torch.mean(wt ** 2, 1))
-               # self.lamda2 * torch.mean(torch.mean(ws_unseen ** 2, 1)) + \
+        # self.lamda2 * torch.mean(torch.mean(ws_unseen ** 2, 1)) + \
         # self.lamda2 * torch.mean((torch.matmul(sy_var, wt) - xt) ** 2)
         # torch.mean(torch.norm((torch.matmul(sy_var, wt) - xt), 2, 1))
         # self.lamda2 * torch.mean(torch.norm(torch.matmul(sy_var, w), 2, 1))

@@ -321,3 +321,5 @@ len(cifar100_classes)
 
 emb_w_cifar100 = tsne_w(w_cifar100)
 scatter(emb_w_cifar100, colors=yc, txts=cifar100_classes, save_name="cifar100_w.pdf", font=12)
+
+
